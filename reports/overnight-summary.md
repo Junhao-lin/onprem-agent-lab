@@ -44,7 +44,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 | B. 1.10 補驗證 + 維運風險段落 | 完成 | **通過**（第 2 輪） | `1397bfc` `2fa201e` `138fbce` `d3c3da0` |
 | C. LiteLLM issue 草稿 | 完成 | **通過**（第 3 輪） | `e2c7307` `d113a62` `0e5830d` `4feff3a` `9162188` `32aaf5c` |
 | D. 正式流量 + 截圖 | 完成 | 有條件通過（第 3 輪；唯一的建議已修正） | `c77b4d5` `b378994` `c8167a4` `a9da907` `65dba36` |
-| E. 1.11 README | 未開始 | | |
+| E. 1.11 README | 完成 | **通過**（第 3 輪） | `0e6a8de` `dc472d5` `218d258` `786f5f7` |
 
 ### A. 1.9 補驗證
 
@@ -136,6 +136,36 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
   - 第 3 輪：有條件通過。只剩行號引用有誤，已修正。
 - **完整套件**：157 passed, 1 xfailed。
 
+### E. 1.11 README
+
+- **README 全面改寫**，包含：
+  - 截圖；
+  - 專案簡介；
+  - mermaid 架構圖；
+  - Quick Start：分 1–5 步，說明 `uv` 不在 PATH 時改用 `python -m uv`，並提供 bash 與 PowerShell 兩種驗證範例；
+  - 服務、port 與 key 限額表；
+  - 可觀測性；
+  - 測試矩陣，含 e2e；
+  - 第一版壓測結果與維運風險；
+  - 安全性；
+  - 已知限制，包括 LiteLLM 計數漂移、spend log 漏記、access log 中的完整 key；
+  - Roadmap。
+- **Quick Start 在運行中的平台上實測過的部分**：compose config、`bootstrap_keys.py`、bash curl、PowerShell `Invoke-RestMethod`。
+  - **沒有從零開始重建平台**：那需要 `down -v` 刪除資料，夜間規則禁止。
+- **新增 `tests/platform/test_readme.py`**（8 項），檢查：
+  - 連結與截圖都存在；
+  - 指令中的 script、compose 檔、profile、pytest 路徑與 marker 都真實存在且正確；
+  - 不含真實 key 的材料；
+  - 基準表與維運風險的數字和原始資料一致；
+  - 限額表和 toml 一致。
+
+  做過 4 種突變檢查。
+- **Codex**：
+  - 第 1 輪：有條件通過。PowerShell 步驟缺漏；README 中有真實 key 的末 4 碼。兩項都已修正。
+  - 第 2 輪：不通過。marker 斷言偏弱，已修正。
+  - 第 3 輪：**通過**。
+- **完整套件**：165 passed, 1 xfailed。
+
 ## 卡住的問題
 
 1. **LiteLLM 的 spend log 寫入問題，原因不明**（`reports/raw/incidents/spendlog-stall.txt`）：
@@ -175,6 +205,46 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 5. **讓 `app_traffic.py` 也呼叫 Qdrant**：這樣截圖中的 Qdrant 面板就會反映應用流量。比較適合等 Phase 2 的 RAG 應用完成後再做。
 6. **Failed 面板會出現 `None` 序列**（LiteLLM 把格式錯誤的 400 記成 `None`）。要不要在面板中把 `None` 重新命名，例如改成「other / unknown」？
 
+## 規則遵守情況
+
+- **分支與 commit**：
+  - 所有 commit 都在 `overnight` 分支上，共 31 個，從 `e25cac1` 開始。
+  - `main` 仍停在 `e25cac1`。
+  - 沒有 push：分支沒有設定 upstream。
+  - 沒有改寫任何既有 commit。
+- **沒有做的事**：
+  - 沒有修改 `.env`，也沒有修改 git 設定；
+  - 沒有執行 `down -v`、`volume rm`、`prune` 等會刪除資料的指令。
+  - 唯一的服務操作是**重啟 litellm 一次**，以及壓測腳本在設計上會重啟 ollama。
+- **既有報告**：1.1–1.8 的驗證報告未修改。1.9 只在後面追加附錄 A–E。
+- **沒有開始 Phase 2。**
+- **違規：密碼進了 commit**。`POSTGRES_PASSWORD` 與 `REDIS_PASSWORD` 進入 commit `0e5830d`，違反「密鑰不進版控」。處理方式見〈需要你決定的事〉第 0 項。
+
 ## 明天早上該怎麼檢查
 
-（全部項目完成後補上）
+1. **先看安全事項**：〈需要你決定的事〉的 0 與 0b，決定是否輪換密碼，以及是否在合併前清理分支歷史。
+2. **看變更**：
+   ```bash
+   git log --oneline main..overnight
+   git diff --stat main..overnight
+   ```
+3. **看結論**：每一項都在 `reports/verification/` 下：
+   - 1.9：附錄 A–E；
+   - 1.10.md、C.md、D.md、E.md。
+
+   原始證據在 `reports/raw/<項目>/`，包括 `pytest.txt`、Codex 的 prompt、回覆與 log、截圖、壓測原始資料。
+4. **看圖**：
+   - `docs/images/dashboard.png`：README 截圖；
+   - `reports/raw/1.9/platform-overview-kiosk.png`：e2e 測試的截圖。
+5. **自己重跑**（平台要先啟動）：
+   ```bash
+   python -m uv sync && python -m uv run playwright install chromium
+   python -m uv run pytest            # 預期 165 passed, 1 xfailed，約 5 分鐘
+   ```
+   - 跑完後 `reports/raw/1.9/platform-overview-kiosk.png` 會被 e2e 測試重新產生，工作樹會顯示修改，這是正常的。
+   - 如果剛重啟過 LiteLLM，dashboard 與 e2e 測試約有 15 分鐘會誤判，見〈卡住的問題〉2。
+6. **讀新文件**：
+   - `README.md`；
+   - `docs/benchmarks/2026-11-26-baseline.md` 的〈Operational risk〉；
+   - `docs/upstream/litellm-parallel-counter.md`：issue 草稿，尚未送出。
+7. **確認沒問題後再合併**：例如 `git switch main && git merge --ff-only overnight`。如果要清理歷史，要在 merge 或 push 之前做。
