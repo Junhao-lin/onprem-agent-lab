@@ -5,8 +5,9 @@ opens platform-overview in kiosk mode, saves a screenshot under
 reports/raw/1.9/ and asserts that every panel actually shows data:
 
   * no "No data" / "No data in range" text anywhere,
-  * no stat tile showing the empty value "–",
-  * every time-series panel has a legend with at least one series,
+  * no stat tile showing the empty value (an en dash, U+2013),
+  * every time-series legend row has numeric Mean/Max/Last and at least one
+    series per panel has a non-zero Max,
   * no panel error indicator,
   * the panels do not overlap and stay inside the viewport.
 
@@ -39,7 +40,8 @@ TS_TITLES = [p["title"] for p in PANELS if p["type"] == "timeseries"]
 OUT_DIR = REPO / "reports/raw/1.9"
 VIEWPORT = {"width": 1600, "height": 1700}       # whole dashboard fits without scrolling
 EMPTY_TEXT = re.compile(r"\bno\s+data\b", re.I)   # "No data", "No data in range", ...
-EMPTY_STAT = {"–", "-", "N/A", "NaN", ""}
+EMPTY_STAT = {"–", "-", "N/A", "NaN", ""}          # – = en dash, Grafana's empty value
+NUMBER = re.compile(r"^-?\d+(\.\d+)?(e[-+]?\d+)?")
 
 pytestmark = [pytest.mark.llm, pytest.mark.browser]
 
@@ -80,14 +82,23 @@ def app_traffic(env, gateway, grafana, probe_image):
             {"method": "POST", "url": f"{col}/points/query", "headers": h,
              "body": {"query": [1.0, 1.0, 0.0, 0.5], "limit": 2}}])
         assert [r["status"] for r in rs] == [200, 200], [r["status"] for r in rs]
+    failure: BaseException | None = None
     try:
         assert probe([{"method": "PUT", "url": col, "headers": h,
                        "body": {"vectors": {"size": 4, "distance": "Cosine"}}}])[0]["status"] == 200
         twice_across_scrape(grafana, qdrant_points, "sum(rest_responses_total)")
+    except BaseException as e:
+        failure = e
+        raise
     finally:
         deleted = probe([{"method": "DELETE", "url": col, "headers": h}])[0]
-        assert deleted["status"] == 200 and deleted["body"].get("result") is True, \
-            f"temporary Qdrant collection not cleaned up: HTTP {deleted['status']}"
+        cleaned = deleted["status"] == 200 and deleted["body"].get("result") is True
+        msg = f"temporary Qdrant collection not cleaned up: HTTP {deleted['status']}"
+        if failure is not None:
+            if not cleaned:
+                failure.add_note(msg)       # keep the original error, report cleanup too
+        else:
+            assert cleaned, msg
 
 
 @pytest.fixture(scope="module")
@@ -157,8 +168,20 @@ def test_timeseries_has_plotted_series(dashboard_page, title):
     assert pnl.locator(".uplot canvas").count() >= 1, f"{title}: no plot canvas"
     assert pnl.locator("[data-testid='data-testid viz-layout-legend'] [data-testid='series-icon']").count() >= 1, \
         f"{title}: legend has no series"
-    legend = pnl.locator("[data-testid='data-testid viz-layout-legend']").inner_text()
-    assert "No data in range" not in legend, f"{title}: a series has no data in range"
+    # Legend table rows (Mean | Max | Last) are computed by Grafana from the
+    # plotted points. Every series must carry numbers, and at least one series
+    # must have a non-zero Max, i.e. something above the baseline was drawn.
+    rows = pnl.locator("[data-testid='data-testid viz-layout-legend'] tbody tr")
+    assert rows.count() >= 1, f"{title}: legend table has no rows"
+    maxima = []
+    for i in range(rows.count()):
+        cells = [c.strip() for c in rows.nth(i).locator("td").all_inner_texts()]
+        # cells: [colour swatch, name, Mean, Max, Last]
+        assert len(cells) == 5 and cells[1], f"{title}: unexpected legend row {cells}"
+        nums = [NUMBER.match(c) for c in cells[2:]]
+        assert all(nums), f"{title}: series {cells[1]!r} has non-numeric legend values {cells[2:]}"
+        maxima.append(float(nums[1].group()))
+    assert max(maxima) > 0, f"{title}: every series is flat zero"
 
 
 def test_no_panel_errors(dashboard_page):

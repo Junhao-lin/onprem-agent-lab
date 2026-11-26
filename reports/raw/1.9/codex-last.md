@@ -1,24 +1,20 @@
 ## 總結：有條件通過
 
-程式與 `pytest.txt` 支持大部分驗收項目，截圖也看得到各面板有資料、版面未見重疊，應用線條使用藍、橘固定色。不過，附錄 A 的數值與目前工作樹中的 PNG 不一致；Qdrant 清理結果也未驗證。另有密鑰遮蔽風險，建議修正後再視為完整通過。
+第 1 輪的修正大致到位，截圖中的主要數值與附錄 A 一致，`pytest.txt` 記錄完整套件通過。不過，圖表斷言仍可能在沒有實際資料點時通過；另外，臨時 collection 的清理失敗可能掩蓋原始測試錯誤。
 
-## 逐條驗收結果
+## 逐條驗收
 
-1. **登入與帳密保護：有條件通過。** 測試從 `.env` 取得帳密，透過登入表單提交；登入例外會以固定訊息取代 Playwright 錯誤細節，避免帳密出現在該錯誤中。[test_grafana.py:97](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:97) 不過，`run_codex.py` 的遮蔽不完整，詳見下方。
-2. **Kiosk 與截圖：通過。** 導向 kiosk URL，截圖寫至 `reports/raw/1.9/`。[test_grafana.py:108](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:108)
-3. **No data 檢查：部分通過。** 測試涵蓋「–」類 stat 空值與 `No data in range` 圖例文字，但全頁文字比對是精確匹配，可能漏掉其他同義或包有額外文字的空資料狀態。[test_grafana.py:41](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:41)、[test_grafana.py:137](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:137)
-4. **自行產生流量與清理：有條件通過。** 流量由測試產生，且用 `finally` 刪除臨時 Qdrant collection；但未檢查 DELETE 回應，無法確認資源確實清除。[test_grafana.py:49](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:49)、[test_grafana.py:83](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:83)
-5. **完整套件與 xfail：通過。** `pytest.txt` 記錄 143 passed、1 xfailed、exit code 0；該 xfail 為 strict，並附 LiteLLM 問題理由。
-6. **截圖與附錄觀察：部分通過。** 我直接檢視了目前工作樹 PNG：面板有數值與圖例、未見重疊或截斷；應用曲線為藍、橘，429 為黃色，錯誤率為紅色。截圖仍有 Grafana 時間／刷新控制列。更重要的是，截圖顯示 Requests 47、Error rate 17.0%、p95 TTFT 488.75 ms，和附錄記載的 37、16.2%、492 ms 不一致；因此附錄數值觀察不能由這份 PNG 證實。
-7. **1.9.md 僅追加附錄：通過。** Git 差異顯示既有內容未改，新增內容只在文件末尾附錄 A。
+1. **第 1 輪意見：大致已處理。** 已加入頂端邊界檢查、No data 部分比對、Qdrant 刪除回應檢查，也調整了附錄數值。測試時序依賴則有合理說明：保留等待抓取與並發觸發方式，並記錄環境敏感性。
+2. **登入、kiosk、截圖與無資料檢查：大致通過。** 測試從 `.env` 讀取帳密並透過登入表單登入，登入錯誤不帶 Playwright 細節；開啟 kiosk 頁面並將截圖存入指定目錄。`No data` 的大小寫與空白比對較完整，但時間序列只檢查 canvas 和圖例存在，沒有確認 canvas 中確實畫出資料點。
+3. **截圖與附錄 A：通過。** 我直接檢視了 PNG；Requests 73、Error rate 16.4%、p95 latency 8.98 s、p95 TTFT 485.71 ms、In-flight 0，與附錄記載相符。版面看起來未重疊或截斷。Git 差異顯示附錄 A 之前的原文未變。
+4. **完整套件：通過（依檔案證據）。** `pytest.txt` 記載 144 項測試、exit code 0；輸出顯示套件完成。
+5. **`run_codex.py` 密鑰處理：逾時路徑已改善，但仍有遮蔽風險。** 最後回覆先寫至 repo 外暫存檔，並在逾時後清除；repo 內 log 與回覆寫入前會遮蔽擷取到的值。惟 `.env` 值少於 4 字元不會被遮蔽；`sk-…` 規則還會保留 token 末四碼。若驗收要求密鑰完全不落入 repo，這項尚未完全滿足。
 
-## 弱斷言與問題清單
+## 剩餘問題
 
-- **必修｜密鑰遮蔽可能漏值** — [run_codex.py:38](/D:/onprem-agent-lab/scripts/overnight/run_codex.py:38)、[run_codex.py:67](/D:/onprem-agent-lab/scripts/overnight/run_codex.py:67)、[run_codex.py:84](/D:/onprem-agent-lab/scripts/overnight/run_codex.py:84)：只從 `.env` 擷取符合變數名稱且長度至少 6 的未解析原始值；引號、行尾註解或短值可能未被遮蔽。此外，Codex 直接以 `--output-last-message` 寫檔，遮蔽是在程序結束後才做，逾時或中斷可能留下未遮蔽內容。建議以正確解析後的所有秘密值遮蔽，並讓輸出先寫至記憶體／暫存，再遮蔽後落盤。
-- **建議｜刪除失敗不會讓測試失敗** — [test_grafana.py:87](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:87)：`finally` 有發送 DELETE，但不檢查回應狀態。建議驗證成功狀態，並在失敗時明確報告清理未完成。
-- **建議｜截圖數值與附錄不符** — [1.9.md:119](/D:/onprem-agent-lab/reports/verification/1.9.md:119)：附錄觀察值與目前工作樹 PNG 不一致。請確認 PNG 是否在提交後被替換（工作樹顯示該檔已修改），並讓報告與欲驗證的截圖版本一致。
-- **建議｜測試時序依賴抓取及並發狀態** — [test_dashboards.py:196](/D:/onprem-agent-lab/tests/platform/test_dashboards.py:196)、[test_dashboards.py:205](/D:/onprem-agent-lab/tests/platform/test_dashboards.py:205)：測試依賴 Prometheus 抓取觀察 counter 增長，且以持有並發槽位製造 429；抓取延遲、請求耗時或其他並發流量都可能影響結果。現有等待與重試有所緩解，但仍有環境時序敏感性。
-- **建議｜幾何檢查未檢查頂端越界** — [test_grafana.py:166](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:166)：檢查了左右與底部，但未要求 `y >= 0`。建議補上頂部邊界斷言。
-- **弱斷言檢查結果：未發現所述空集合通過。** 面板計數及每個 JSON 面板標題都要求唯一匹配；stat 與時間序列斷言會對缺失元素觸發錯誤，不會因為空集合而成功。[test_grafana.py:131](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:131)、[test_grafana.py:145](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:145)
+- **建議｜圖表無資料仍可能通過** — [test_grafana.py](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:155)：canvas 存在且圖例有序列，不代表有實際繪圖資料。建議檢查 Grafana 渲染後的序列資料／資料點，至少確認每個時間序列面板有非空值。
+- **建議｜清理斷言可能蓋過原始錯誤** — [test_grafana.py](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:87)：`finally` 中若 DELETE 失敗，清理斷言會取代先前的流量或建表錯誤。建議保留並回報原始例外，同時附上清理失敗資訊；沒有原始錯誤時，再讓清理失敗使測試失敗。
+- **建議｜遮蔽不足以保證所有密鑰不落盤** — [run_codex.py](/D:/onprem-agent-lab/scripts/overnight/run_codex.py:63)：短於 4 字元的 `.env` 值未列入遮蔽；[run_codex.py](/D:/onprem-agent-lab/scripts/overnight/run_codex.py:74)：`sk-…` token 遮蔽後仍保留末四碼。建議納入所有敏感變數值，並將 token 整體替換為固定遮罩。
+- **建議｜README 字元疑似亂碼** — [test_grafana.py](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:8)：目前讀到的工作樹檔案中，docstring 的空值符號顯示為 `??`，與程式中的 `EMPTY_STAT` 符號不一致；建議確認檔案編碼及註解內容。
 
-我沒有親自執行測試；以上結論來自閱讀程式碼、Git 歷史與測試輸出，並直接檢視目前工作樹中的 PNG。
+我沒有親自執行測試；上述結論依據指定的 Git 歷史、檔案內容、測試輸出與 PNG。

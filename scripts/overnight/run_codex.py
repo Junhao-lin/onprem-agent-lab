@@ -27,7 +27,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 TIMEOUT_S = 15 * 60
+# Any other sk- token is shown in the project-wide mask format (sk-…last4,
+# the format the project owner specified for key output; see README security notes).
 SK_TOKEN = re.compile(r"sk-[A-Za-z0-9_\-]{8,}")
+SECRET_NAME = re.compile(r"(PASSWORD|KEY|SALT|SECRET|TOKEN)", re.I)
 # Values too generic to redact without mangling prose (ports, model names, ...).
 NOT_SECRET_VARS = re.compile(r"(_PORT|_USER|_DB|_MODEL|_RETENTION|NUM_PARALLEL|MAX_LOADED_MODELS|KEEP_ALIVE)$")
 
@@ -60,7 +63,11 @@ def secret_values() -> list[str]:
         k, v = line.split("=", 1)
         k = k.strip().removeprefix("export ").strip()
         v = parse_env_value(v)
-        if v and len(v) >= 4 and not NOT_SECRET_VARS.search(k):
+        if not v or NOT_SECRET_VARS.search(k):
+            continue
+        # Sensitive names are redacted at any length; other values only when
+        # long enough not to collide with ordinary words.
+        if SECRET_NAME.search(k) or len(v) >= 4:
             vals.add(v)
     return sorted(vals, key=len, reverse=True)
 
