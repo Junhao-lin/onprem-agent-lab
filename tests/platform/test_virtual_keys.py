@@ -142,8 +142,17 @@ def test_parallel_limit(gateway, tmp_key):
     assert set(codes) <= {200, 429}, codes
     assert codes == [200] * limit + [429], codes
 
-    time.sleep(1)  # fixed settle time for the async slot release after stream end
-    assert gateway.chat(k).status == 200, "slot not released after streams finished"
+    # Slot release after stream end is async: poll every 0.1s (max 5s) instead
+    # of a fixed sleep. While a slot is still held the gateway answers 429
+    # immediately; the first 200 proves release. Anything else fails.
+    polled, deadline = [], time.monotonic() + 5
+    while True:
+        polled.append(gateway.chat(k).status)
+        if polled[-1] != 429 or time.monotonic() > deadline:
+            break
+        time.sleep(0.1)
+    assert set(polled) <= {200, 429}, polled
+    assert polled[-1] == 200, f"slot not released within 5s after streams finished: {polled}"
 
 
 @pytest.mark.llm
