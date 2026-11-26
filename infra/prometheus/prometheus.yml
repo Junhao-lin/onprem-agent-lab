@@ -1,0 +1,25 @@
+# Prometheus scrape config. Secrets are mounted as files (compose secrets),
+# never written here.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # LiteLLM gateway: requests / tokens / latency / TTFT per api_key_alias
+  - job_name: litellm
+    metrics_path: /metrics/
+    static_configs:
+      - targets: ["litellm:4000"]
+
+  # Qdrant: /metrics is protected by the API key
+  - job_name: qdrant
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/qdrant_api_key
+    static_configs:
+      - targets: ["qdrant:6333"]

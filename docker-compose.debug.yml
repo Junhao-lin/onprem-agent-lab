@@ -11,3 +11,7 @@ services:
     ports:
       - "127.0.0.1:${QDRANT_HTTP_PORT:-6333}:6333"   # REST + /dashboard
       - "127.0.0.1:${QDRANT_GRPC_PORT:-6334}:6334"   # gRPC
+
+  prometheus:
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"    # Prometheus UI / API

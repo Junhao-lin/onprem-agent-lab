@@ -43,9 +43,9 @@ TODO：架構圖。
 ```bash
 cp .env.example .env   # 填入所有 change-me
 # 有 NVIDIA GPU：
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile platform up -d
-# 純 CPU：
-# docker compose --profile platform up -d
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile platform --profile monitoring up -d
+# 純 CPU（拿掉 gpu override）；只要平台不要監控則拿掉 --profile monitoring：
+# docker compose --profile platform --profile monitoring up -d
 docker compose ps   # 確認所有服務為 healthy；ollama-init 拉完模型後會 Exited (0)
 
 # 建立／更新各應用的 virtual key（寫入 .env，可重複執行）
@@ -62,11 +62,13 @@ python scripts/bootstrap_keys.py
 | ollama-init | platform | — | 一次性工作：拉取 `OLLAMA_CHAT_MODEL`、`OLLAMA_EMBED_MODEL` |
 | litellm | platform | `127.0.0.1:4000` | LLM Gateway；應用唯一入口（OpenAI 相容），Admin UI 在 `/ui` |
 | qdrant | platform | —（僅內網；除錯時見下方） | 向量庫（REST :6333、gRPC :6334）；需 `api-key`；telemetry 關閉 |
+| prometheus | monitoring | —（僅內網；除錯時見下方） | 抓取 litellm、qdrant 指標；保留 15 天 |
+| grafana | monitoring | `127.0.0.1:3000` | 儀表板；帳密取自 `.env`，資料來源自動 provision，回報／更新檢查關閉 |
 
 **除錯用：暫時開放內部服務的 port**
 
-預設只有 LiteLLM 對 host 開放（`127.0.0.1:4000`）。需要從 host 檢查 Qdrant（例如開 `/dashboard`）時，
-加上 `docker-compose.debug.yml`，port 會綁在 `127.0.0.1`，可用 `.env` 的 `QDRANT_HTTP_PORT`、`QDRANT_GRPC_PORT` 改號：
+預設只有 LiteLLM（`127.0.0.1:4000`）與 Grafana（`127.0.0.1:3000`）對 host 開放。需要從 host 檢查 Qdrant（例如開 `/dashboard`）或 Prometheus UI 時，
+加上 `docker-compose.debug.yml`，port 會綁在 `127.0.0.1`，可用 `.env` 的 `QDRANT_HTTP_PORT`、`QDRANT_GRPC_PORT`、`PROMETHEUS_PORT` 改號：
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.debug.yml --profile platform up -d qdrant
@@ -104,13 +106,18 @@ TODO：YAML 課程、Docker 沙盒檢查、MCP 工具。
 
 ## 可觀測性
 
-TODO
+- **LiteLLM** 開啟 `prometheus` callback（免費版即可），`/metrics/` 提供請求數、tokens、延遲、TTFT、進行中請求等，皆帶 `api_key_alias` label，可依應用拆分。
+- **Qdrant** `/metrics` 需 API key：Prometheus 以 compose secret（值取自 `.env` 的 `QDRANT_API_KEY`）掛成 `/run/secrets/qdrant_api_key`，設定檔只寫 `credentials_file`。
+- **Grafana** 資料來源由 `infra/grafana/provisioning/` 自動建立（唯讀）；儀表板 JSON 放 `infra/grafana/dashboards/`（1.9）。
+- Ollama 本身不提供 Prometheus 指標；推論端指標待換 vLLM 後補齊。
+
+TODO：儀表板截圖
 
 ## 測試與評測
 
 ### 平台測試（pytest）
 
-需要平台已啟動（`--profile platform`）且 `.env` 已填好、已跑過 `bootstrap_keys.py`。
+需要平台與監控已啟動（`--profile platform --profile monitoring`）且 `.env` 已填好、已跑過 `bootstrap_keys.py`。
 
 ```bash
 pip install uv            # 若尚未安裝；或 python -m uv ...
@@ -125,6 +132,7 @@ uv run pytest tests/platform -m "not llm"   # 跳過會呼叫模型的測試
 | `test_containers.py` | 服務 healthy、ollama-init exit 0、**只有 gateway 對 host 開 port 且綁 127.0.0.1**、named volume、Redis 未認證被拒、Qdrant telemetry 關閉（檢查容器環境變數） |
 | `test_gateway.py` | readiness（db + redis）、錯誤 key 401、模型清單只有別名、chat／串流／embedding 1024 維、spend log 寫入 |
 | `test_virtual_keys.py` | key 限額與 `virtual-keys.toml` 一致、模型白名單、rpm／tpm／並發觸發 429、限流計數在 Redis、回應不被快取、bootstrap 冪等且輸出只含 `sk-…末4碼` |
+| `test_monitoring.py` | Prometheus 三個 target 皆 up、Qdrant 抓取用 secret 檔、gateway 請求依 `api_key_alias` 出現在 Prometheus、Grafana 需登入、資料來源 provision 且健康、回報功能關閉 |
 | `test_qdrant.py` | 健康檢查免驗證、無 key／錯誤 key 401、經 gateway 產生 embedding → 寫入 → 查詢的端到端流程 |
 
 設計重點：
@@ -145,7 +153,8 @@ TODO
 - 所有密鑰只放 `.env`（已列入 `.gitignore`），版控中僅有 `.env.example`。
 - 設定檔（`infra/litellm/config.yaml` 等）只以 `os.environ/...` 引用密鑰，不寫明文。
 - 腳本輸出的 key 一律遮罩為 **`sk-` + `…` + 末 4 碼**（例：`sk-…NFWw`）：前 3 碼固定為 `sk-` 無辨識度，末 4 碼足以區分不同 key，且為業界常見做法；完整 key 只寫入 `.env`。
-- 只有 Gateway 對 host 開放且只綁 `127.0.0.1`；Postgres、Redis、Ollama、Qdrant 預設不對 host 開 port（除錯 override 見〈服務與 Port〉）。
+- 只有 Gateway 與 Grafana 對 host 開放且只綁 `127.0.0.1`；Postgres、Redis、Ollama、Qdrant、Prometheus 預設不對 host 開 port（除錯 override 見〈服務與 Port〉）。
+- LiteLLM `/metrics/` 不需驗證（Prometheus 無須持有 master key），因此只能從內網與本機 loopback 存取。
 - Qdrant 所有資料／collection API 需 `api-key`；僅健康檢查（`/healthz`、`/readyz`、`/livez`）免驗證。
 
 ## 已知限制與 Roadmap
