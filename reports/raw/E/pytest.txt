@@ -1,5 +1,5 @@
 $ -m uv run pytest -v
-# started 2026-11-27 01:26:36, exit code 0
+# started 2026-11-27 01:33:34, exit code 0
 
 ============================= test session starts =============================
 platform win32 -- Python 3.12.4, pytest-9.2.0, pluggy-1.7.0 -- D:\onprem-agent-lab\.venv\Scripts\python.exe
@@ -178,4 +178,4 @@ tests/platform/test_virtual_keys.py::test_bootstrap_replaces_orphan_alias PASSED
 
 =========================== short test summary info ===========================
 XFAIL tests/platform/test_dashboards.py::test_auth_rejection_does_not_skew_parallel_counter - LiteLLM 1.83 bug: a 401 'model not allowed' decrements the parallel-request counter without incrementing it, so an app can temporarily raise its own concurrency ceiling. strict: alerts us when an upgrade fixes it.
-================= 165 passed, 1 xfailed in 304.00s (0:05:03) ==================
+================= 165 passed, 1 xfailed in 303.65s (0:05:03) ==================
