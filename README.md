@@ -159,6 +159,13 @@ TODO
 
 ## 已知限制與 Roadmap
 
+**已知限制**
+
+- LiteLLM `/metrics/` 目前免驗證（僅內網與 `127.0.0.1` 可達）。之後加入 Nginx 等反向代理對外時，**必須在代理層阻擋外部存取 `/metrics`**。
+- Ollama 不提供 Prometheus 指標；推論端（GPU、佇列）指標待換 vLLM 後補齊。
+
+**Roadmap**
+
 - [ ] Phase 1：平台（推論、Gateway、向量庫、監控、壓測）
 - [ ] Phase 2：應用 A — 產品客服 RAG
 - [ ] Phase 3：應用 B — 新人教學 Agent
