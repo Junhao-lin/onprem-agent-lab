@@ -7,6 +7,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "playwright>=1.65.2",
     "pytest>=8.3",
 ]
 
@@ -19,4 +20,5 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 markers = [
     "llm: calls a model through the gateway or Ollama (slower, uses GPU)",
+    "browser: drives a headless Chromium via Playwright (needs `playwright install chromium`)",
 ]
