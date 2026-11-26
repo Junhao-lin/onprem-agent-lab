@@ -1,0 +1,22 @@
+[project]
+name = "onprem-agent-lab"
+version = "0.1.0"
+description = "On-prem LLM platform (Ollama/vLLM + LiteLLM + Qdrant) with two apps"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+]
+
+[tool.uv]
+# Workspace root only; apps/libs become workspace members in later phases.
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "llm: calls a model through the gateway or Ollama (slower, uses GPU)",
+]
