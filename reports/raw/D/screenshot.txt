@@ -12,10 +12,16 @@ saved docs\images\dashboard.png: 16 panels, all with data (range now-10m)
   zone, UTC+8. Axis 00:33-00:38 = 16:33-16:38 UTC = the app_traffic.py run. Capture at ~00:38 local
   = ~16:38 UTC (git commit c77b4d5 is stamped 2026-11-27 00:53 +0800, after the capture).
 - LLM panels (requests, latency, TTFT, tokens, error rate) in 00:33-00:38: app_traffic.py with the
-  two production keys. The segment 00:28-00:31 at the left edge is the tail of the full pytest run
-  (C item), still inside the 10-minute range.
-- Qdrant panels: app_traffic.py does NOT call Qdrant (the RAG app does not exist yet). The Qdrant
-  request/latency points at ~00:30 come from the pytest run (tests/e2e fixture and test_qdrant
-  upsert/query on disposable collections). Collections = 0 and Vectors = 0 are real current values:
-  those collections were deleted, and no app collection exists yet.
+  two production keys. The segment 00:28-00:31 at the left edge is the tail of a full pytest run
+  that started 00:26:55 UTC+8 and took 3m07s (item C, Codex round 2 fixes). That run's output was
+  committed in 0e5830d and later replaced because it leaked two passwords; a redacted copy is kept
+  as reports/raw/D/pytest-C-run-0026-redacted.txt (header: "# started 2026-11-27 00:26:55").
+  It is NOT reports/raw/D/pytest.txt, which is a later run (01:00:37).
+- Qdrant panels: app_traffic.py does NOT call Qdrant (the RAG app does not exist yet). The only
+  Qdrant REST activity inside the 10-minute range is at 00:30:15 UTC+8 (reports/raw/D/qdrant-activity.txt,
+  queried from Prometheus). It matches tests/platform/test_qdrant.py::test_end_to_end_gateway_embedding_roundtrip
+  in that 00:26:55 run (line 139 of the redacted copy, at 83 % of a 3m07s run, i.e. ~00:29:30; the
+  scrape at 00:30:15 picks it up). The tests/e2e Qdrant fixture did not run there: e2e errored
+  (lines 12, 1153). Collections = 0 and Vectors = 0 are real current values: the test collection
+  was deleted, and no app collection exists yet.
 - Error panel: all zero because every app_traffic request returned 200 (see app-traffic.txt).

@@ -1,0 +1,11 @@
+# Prometheus: sum(increase(rest_responses_total[30s])) between 00:15 and 00:55 UTC+8 (step 15 s), non-zero points only
+# queried 2026-11-27 01:07:44 UTC+8 via the in-network probe
+00:15:15 UTC+8 = 16:15:15 UTC  increase 4.0
+00:18:15 UTC+8 = 16:18:15 UTC  increase 4.0
+00:30:15 UTC+8 = 16:30:15 UTC  increase 4.0
+00:40:30 UTC+8 = 16:40:30 UTC  increase 4.0
+00:41:00 UTC+8 = 16:41:00 UTC  increase 4.0
+00:43:30 UTC+8 = 16:43:30 UTC  increase 4.0
+00:47:15 UTC+8 = 16:47:15 UTC  increase 4.0
+00:47:45 UTC+8 = 16:47:45 UTC  increase 4.0
+00:50:15 UTC+8 = 16:50:15 UTC  increase 4.0
