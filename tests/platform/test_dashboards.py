@@ -116,7 +116,7 @@ def test_per_app_panel_shows_live_traffic(env, gateway, grafana):
         time.sleep(3)
         names = series_names()
     assert "support-rag" in names, names
-    assert not [n for n in names if n.startswith("pytest-tmp-") or n == "None"], names
+    assert not [n for n in names if n.startswith(("pytest-tmp-", "loadtest-")) or n == "None"], names
 
 
 # --- app variable ---------------------------------------------------------------
@@ -126,7 +126,7 @@ def test_app_variable_hides_test_and_master_traffic(stack_up, probe_image):
     pattern = re.compile(APP_VAR["regex"].strip("/"))
     kept = sorted(v for v in values if pattern.search(v))
     assert set(kept) <= set(REAL_APPS), kept
-    for v in ["pytest-tmp-rpm", "None", "pytest-tmp-parallel"]:
+    for v in ["pytest-tmp-rpm", "None", "pytest-tmp-parallel", "loadtest-1795698642"]:
         assert not pattern.search(v), v
     for v in REAL_APPS:
         assert pattern.search(v), v

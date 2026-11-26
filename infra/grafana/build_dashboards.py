@@ -261,8 +261,9 @@ def platform_overview() -> dict:
             "datasource": DS,
             "query": {"query": f"label_values({REQ}, api_key_alias)", "refId": "app"},
             "definition": f"label_values({REQ}, api_key_alias)",
-            # Real apps only: hide test keys (pytest-tmp-*) and master-key traffic (None).
-            "regex": "/^(?!pytest-tmp-|None$).+$/",
+            # Real apps only: hide test keys (pytest-tmp-*), load-test keys (loadtest-*)
+            # and master-key traffic (None).
+            "regex": "/^(?!pytest-tmp-|loadtest-|None$).+$/",
             "includeAll": True, "multi": True, "allValue": None,
             "current": {"selected": True, "text": ["All"], "value": ["$__all"]},
             "refresh": 2, "sort": 1,
