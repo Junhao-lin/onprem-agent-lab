@@ -5,7 +5,9 @@ $__range / $__rate_interval exactly as the panels do; only the $app
 template variable is substituted here.
 """
 import base64
+import hashlib
 import json
+import tomllib
 import re
 import subprocess
 import sys
@@ -14,7 +16,7 @@ import urllib.parse
 
 import pytest
 
-from conftest import REPO, http, probe
+from conftest import REPO, http, probe, redis_cli
 
 sys.path.insert(0, str(REPO / "infra" / "grafana"))
 import build_dashboards as bd  # noqa: E402
@@ -24,6 +26,8 @@ PANELS = [p for p in DASH["panels"] if p["type"] != "row"]
 APP_VAR = next(v for v in DASH["templating"]["list"] if v["name"] == "app")
 REAL_APPS = list(bd.APP_COLORS)
 STATUS = {bd.GOOD, bd.WARNING, bd.SERIOUS, bd.CRITICAL}
+SPECS_PARALLEL = {a: s["max_parallel_requests"] for a, s in tomllib.loads(
+    (REPO / "infra/litellm/virtual-keys.toml").read_text(encoding="utf-8"))["keys"].items()}
 
 
 @pytest.fixture(scope="module")
@@ -61,7 +65,11 @@ def test_dashboard_provisioned(stack_up, grafana):
     meta = r.body["meta"]
     assert meta["provisioned"] is True and meta["folderTitle"] == "onprem-agent-lab", meta
     assert r.body["dashboard"]["title"] == DASH["title"]
-    assert len([p for p in r.body["dashboard"]["panels"] if p["type"] != "row"]) == len(PANELS)
+    loaded = {p["title"]: [t["expr"] for t in p.get("targets", [])]
+              for p in r.body["dashboard"]["panels"] if p["type"] != "row"}
+    committed = {p["title"]: [t["expr"] for t in p["targets"]] for p in PANELS}
+    assert loaded == committed, ("Grafana serves a stale dashboard; run "
+                                 "python infra/grafana/build_dashboards.py --reload")
 
 
 # --- every query is valid PromQL through Grafana ------------------------------
@@ -159,3 +167,150 @@ def test_error_panel_uses_reserved_status_colors():
     panel = next(p for p in PANELS if p["title"] == "Failed requests / s by status")
     colors = {o["properties"][0]["value"]["fixedColor"] for o in panel["fieldConfig"]["overrides"]}
     assert colors <= STATUS and bd.WARNING in colors and bd.CRITICAL in colors, colors
+
+
+# --- 1.9 visual-review follow-ups ---------------------------------------------
+def instant(grafana, expr: str) -> float:
+    """Latest value of an expression via Grafana (0.0 if no data).
+    An empty result comes back as a frame with a schema but no value columns."""
+    vals = []
+    for f in ds_query(grafana, expr, minutes=15).get("frames", []):
+        cols = f.get("data", {}).get("values", [])
+        if len(cols) >= 2:
+            vals += [v for v in cols[1] if v is not None]
+    return vals[-1] if vals else 0.0
+
+
+def panel_expr(title: str) -> str:
+    return next(p for p in PANELS if p["title"] == title)["targets"][0]["expr"]
+
+
+def wait_increase(grafana, expr: str, before: float, timeout: float = 45) -> float:
+    deadline, after = time.monotonic() + timeout, instant(grafana, expr)
+    while after <= before and time.monotonic() < deadline:
+        time.sleep(3)
+        after = instant(grafana, expr)
+    return after
+
+
+def twice_across_scrape(grafana, action, counter: str) -> None:
+    """Run `action` twice with a scrape in between. rate()/increase() cannot see
+    the first sample of a brand-new series, so panels need two observed points."""
+    for _ in range(2):
+        before = instant(grafana, counter)
+        action()
+        assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+
+
+def hold_slots_then_overflow(gateway, key: str, slots: int) -> list[int]:
+    from test_virtual_keys import drain, open_stream
+
+    held, codes = [], []
+    try:
+        for _ in range(slots):
+            status, resp = open_stream(gateway, key)
+            codes.append(status)
+            if resp:
+                held.append(resp)
+        codes.append(gateway.chat(key).status)
+    finally:
+        for resp in held:
+            drain(resp)
+    return codes
+
+
+@pytest.mark.llm
+def test_real_app_error_shows_in_failure_panels(env, gateway, grafana):
+    """A metered error from a REAL app key (not pytest-tmp-*) reaches the panels.
+
+    Auth-stage 401s are not metered (test_auth_rejections_are_not_metered), so the
+    error is a 429 from support-rag's own parallel limit: hold 2 slots, send a 3rd.
+    support-rag is used because no test sends it auth-rejected requests, which
+    skew the limiter counter (see test_auth_rejection_does_not_skew_parallel_counter)."""
+    key = env["SUPPORT_RAG_LLM_KEY"]
+    slots = SPECS_PARALLEL["support-rag"]
+    counter = f'sum({bd.FAIL}{{api_key_alias="support-rag",exception_status="429"}})'
+
+    def overflow():
+        assert hold_slots_then_overflow(gateway, key, slots) == [200] * slots + [429]
+    twice_across_scrape(grafana, overflow, counter)
+
+    frames = ds_query(grafana, panel_expr("Failed requests / s by status"), minutes=15).get("frames", [])
+    statuses = {fld.get("labels", {}).get("exception_status") for f in frames for fld in f["schema"]["fields"]}
+    assert "429" in statuses, statuses
+    assert instant(grafana, panel_expr("Error rate").replace("$__range", "15m")) > 0
+
+
+@pytest.mark.llm
+def test_app_streaming_shows_in_ttft_panels(env, gateway, grafana):
+    """TTFT is only reported for streaming requests: support-rag streams fill the panels."""
+    from test_virtual_keys import drain, open_stream
+
+    counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def stream():
+        status, resp = open_stream(gateway, env["SUPPORT_RAG_LLM_KEY"])
+        assert status == 200
+        drain(resp)
+    twice_across_scrape(grafana, stream, counter)
+
+    frames = ds_query(grafana, panel_expr("p95 time to first token"), minutes=15).get("frames", [])
+    aliases = {fld.get("labels", {}).get("api_key_alias") for f in frames for fld in f["schema"]["fields"]}
+    assert "support-rag" in aliases, aliases
+    assert instant(grafana, panel_expr("p95 TTFT").replace("$__range", "15m")) > 0
+
+
+def test_in_flight_reads_zero_when_idle(grafana, probe_image):
+    """Raw gauge counts the scrape itself (>= 1); the panel must read 0 when idle.
+    Waits for a scrape that happens after this test starts sending nothing."""
+    def last_scrape() -> float:
+        r = probe([{"url": "http://prometheus:9090/api/v1/query?query=litellm_in_flight_requests"}])
+        res = r[0]["body"]["data"]["result"]
+        return float(res[0]["value"][0]) if res else 0.0
+
+    t0 = time.time()
+    deadline = time.monotonic() + 40
+    while last_scrape() <= t0 + 1 and time.monotonic() < deadline:
+        time.sleep(2)
+    assert last_scrape() > t0, "no fresh scrape observed"
+    raw = probe([{"url": "http://prometheus:9090/api/v1/query?query=sum(litellm_in_flight_requests)"}])
+    assert float(raw[0]["body"]["data"]["result"][0]["value"][1]) >= 1  # the scrape itself
+    assert instant(grafana, panel_expr("In-flight now")) == 0
+
+
+@pytest.mark.llm
+def test_auth_rejections_are_not_metered(gateway, tmp_key):
+    """Characterisation of LiteLLM 1.83: 401s from the auth stage change no metric.
+    Documented in the dashboard; if an upgrade starts metering them, this fails
+    and the panel descriptions must be updated. Uses a disposable key."""
+    k = tmp_key("authmeter")  # chat-default only
+
+    def snapshot() -> dict:
+        txt = http("GET", gateway.base + "/metrics/").body
+        return {line.rsplit(" ", 1)[0]: line.rsplit(" ", 1)[1] for line in txt.splitlines()
+                if line.startswith(("litellm_proxy_failed_requests_metric_total{",
+                                    "litellm_proxy_total_requests_metric_total{"))}
+
+    before = snapshot()
+    assert gateway.embed(k, "t").status == 401                         # model not allowed
+    assert gateway.request("GET", "/v1/models", key="sk-not-a-real-key").status == 401
+    time.sleep(1)
+    assert snapshot() == before
+
+
+def parallel_counter(key: str) -> int:
+    v = redis_cli("get", "{api_key:%s}:max_parallel_requests" % hashlib.sha256(key.encode()).hexdigest())
+    return int(v.stdout.strip() or 0)
+
+
+@pytest.mark.llm
+@pytest.mark.xfail(strict=True, reason="LiteLLM 1.83 bug: a 401 'model not allowed' decrements the "
+                   "parallel-request counter without incrementing it, so an app can temporarily "
+                   "raise its own concurrency ceiling. strict: alerts us when an upgrade fixes it.")
+def test_auth_rejection_does_not_skew_parallel_counter(gateway, tmp_key):
+    k = tmp_key("skew", max_parallel_requests=2)
+    assert gateway.chat(k).status == 200
+    base = parallel_counter(k)
+    for _ in range(3):
+        assert gateway.embed(k, "t").status == 401
+    assert parallel_counter(k) == base
