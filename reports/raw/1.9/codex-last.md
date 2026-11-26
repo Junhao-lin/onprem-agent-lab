@@ -1,17 +1,11 @@
-## 總結：有條件通過
+## 最終判定：有條件通過
 
-第 2 輪的大部分建議已處理；提交版 PNG 與附錄 A 數值一致，pytest 紀錄也顯示完整套件通過。尚有一處清理例外處理未完整保留原始錯誤，因此不判定完全通過。
+1. **第 3 輪修正：通過。** [test_grafana.py:94](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:94) 將清理呼叫本身包在 `try/except` 中；原測試已有錯誤時，清理失敗會附加註記並保留原錯誤，沒有原錯誤時則讓清理失敗使測試失敗。這處理了附錄 D 指出的掩蓋問題。
 
-## 逐條驗收
+2. **1.9 整體驗收：有證據支持。** 程式從 `.env` 讀取登入資料、透過表單登入，並將 Playwright 登入錯誤改為固定訊息；之後開啟 kiosk 儀表板並存圖。空資料檢查涵蓋 `No data` 類文字、空 stat 值，以及時間序列圖例數值與非零 Max。pytest 記錄為 **143 passed、1 xfailed，exit code 0**；我直接檢視 PNG，附錄 A 列出的 Requests 156、Error rate 16.8%、p95 latency 8.89 s、p95 TTFT 479.00 ms、In-flight 0、Collections 1、Vectors 3 均相符。這些是檔案證據；**我沒有親自執行測試**。
 
-1. **第 2 輪建議：大致已處理。** 圖例加入數值與非零 Max 檢查；密鑰名稱含敏感字樣時不論長度都遮蔽；`sk-…末 4 碼` 維持使用者指定格式，有合理理由。`add_note` 能處理 DELETE 回應失敗，但未涵蓋清理呼叫本身拋出例外，詳見下方。
+3. **弱斷言：仍有一項。** [test_grafana.py:163](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:163) 對 stat 面板只檢查最後一行不是空值標記，沒有驗證數值型 stat（例如 Requests、Error rate、latency、Collections、Vectors）是否為數字或合理範圍；非空但格式錯誤的內容仍可能通過。
 
-2. **登入、kiosk、截圖與無資料檢查：通過。** 測試從 `.env` 讀取帳密並透過登入表單登入；錯誤訊息不帶 Playwright 細節。它開啟 kiosk 儀表板並將截圖存至 `reports/raw/1.9/`。Stat 空值、`No data` 文字和時間序列圖例均有檢查。圖例列數為零會明確失敗，不會空集合通過；DOM 結構不符也會因沒有列或欄位形狀不符而失敗。數值解析採前綴匹配，對 Grafana 常見帶單位的數值可用，但格式異常時可能接受數字後的額外文字。
+### 剩餘問題
 
-3. **PNG、附錄 A 與原文：通過。** 我直接檢視提交版 PNG，Requests 130、Error rate 17.1%、p95 latency 8.93 s、p95 TTFT 480.56 ms、In-flight 0，均與附錄 A 相符。附錄 A 之前的原文在 `e25cac1..3fceecd` 差異中未修改。
-
-4. **完整套件：依證據通過。** `pytest.txt` 記載 exit code 0、143 passed、1 xfailed。**我沒有親自執行測試。**
-
-## 剩餘問題
-
-- **建議｜清理呼叫拋出例外仍會掩蓋原始錯誤** — [test_grafana.py](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:94)：若 `probe(DELETE...)` 本身拋出例外，`finally` 會以該例外取代先前測試錯誤；目前 `add_note` 僅處理收到失敗 HTTP 回應的情況。這是建議修正項；單就此問題，判定為有條件通過，尚不足以判為不通過。
+- [tests/e2e/test_grafana.py:163](/D:/onprem-agent-lab/tests/e2e/test_grafana.py:163) — **低嚴重度**：數值型 stat 的非空檢查偏弱。
