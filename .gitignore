@@ -1,0 +1,44 @@
+# --- Secrets (never commit) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# --- Runtime data / volumes ---
+data/volumes/
+**/data/raw/
+**/data/processed/
+models/
+*.gguf
+*.safetensors
+
+# --- Load test & eval outputs ---
+loadtest/results/*
+!loadtest/results/.gitkeep
+eval/**/results/
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Claude Code local settings ---
+.claude/settings.local.json

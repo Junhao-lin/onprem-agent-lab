@@ -1,0 +1,80 @@
+# onprem-agent-lab
+
+地端 LLM 平台與其上的兩個應用：攝影機產品客服 RAG、新人教學 Agent。
+
+> 🚧 開發中 — 目前進度：Phase 1（平台）
+
+## 目錄
+
+1. [專案簡介](#專案簡介)
+2. [為什麼地端](#為什麼地端)
+3. [架構](#架構)
+4. [Quick Start](#quick-start)
+5. [服務與 Port](#服務與-port)
+6. [應用 A：產品客服 RAG](#應用-a產品客服-rag)
+7. [應用 B：新人教學 Agent](#應用-b新人教學-agent)
+8. [可觀測性](#可觀測性)
+9. [測試與評測](#測試與評測)
+10. [切換到 vLLM](#切換到-vllm)
+11. [安全性](#安全性)
+12. [已知限制與 Roadmap](#已知限制與-roadmap)
+
+## 專案簡介
+
+TODO
+
+## 為什麼地端
+
+TODO：資料不出網、成本可控、推論後端可替換。
+
+## 架構
+
+TODO：架構圖。
+
+- **推論**：Ollama（OpenAI 相容 API），可替換為 vLLM
+- **Gateway**：LiteLLM Proxy + PostgreSQL + Redis；每個應用一把 virtual key，設 rpm / tpm / 並發上限
+- **向量庫**：Qdrant
+- **監控**：Prometheus + Grafana
+
+## Quick Start
+
+前置需求：Docker（含 Compose v2）、NVIDIA GPU + Container Toolkit（可選）。
+
+```bash
+cp .env.example .env   # 填入所有 change-me
+# TODO: docker compose --profile platform up -d
+```
+
+## 服務與 Port
+
+TODO
+
+## 應用 A：產品客服 RAG
+
+TODO：章節切塊、hybrid search + rerank、附出處、低分拒答。
+
+## 應用 B：新人教學 Agent
+
+TODO：YAML 課程、Docker 沙盒檢查、MCP 工具。
+
+## 可觀測性
+
+TODO
+
+## 測試與評測
+
+TODO：pytest、壓測（TTFT / tokens/s / p95 / 並發）、RAG 評測集。
+
+## 切換到 vLLM
+
+TODO
+
+## 安全性
+
+- 所有密鑰只放 `.env`（已列入 `.gitignore`），版控中僅有 `.env.example`。
+
+## 已知限制與 Roadmap
+
+- [ ] Phase 1：平台（推論、Gateway、向量庫、監控、壓測）
+- [ ] Phase 2：應用 A — 產品客服 RAG
+- [ ] Phase 3：應用 B — 新人教學 Agent
