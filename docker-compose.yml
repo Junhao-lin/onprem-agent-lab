@@ -102,3 +102,41 @@ services:
       - ./infra/ollama/pull-models.sh:/pull-models.sh:ro
     entrypoint: ["/bin/sh", "/pull-models.sh"]
     networks: [backend]
+
+  # ---------------------------------------------------------------
+  # LiteLLM Proxy — the only LLM entry point for apps.
+  # Virtual keys / spend in Postgres, rate-limit counters in Redis.
+  # Published on 127.0.0.1 only (dev access from host).
+  # ---------------------------------------------------------------
+  litellm:
+    image: ghcr.io/berriai/litellm-database:main-v1.83.14-stable
+    profiles: [platform]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?set LITELLM_MASTER_KEY in .env}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:?set LITELLM_SALT_KEY in .env}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Ollama ignores the key, but the OpenAI client requires one
+      OLLAMA_API_KEY: ollama-no-auth
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    volumes:
+      - ./infra/litellm/config.yaml:/app/config.yaml:ro
+    ports:
+      - "127.0.0.1:${LITELLM_PORT:-4000}:4000"
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/readiness', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s

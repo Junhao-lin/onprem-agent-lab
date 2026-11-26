@@ -1,0 +1,47 @@
+# LiteLLM Proxy config
+# Apps call stable aliases ("chat-default", "embed-default"), never backend
+# model names. Swapping Ollama -> vLLM only changes litellm_params below.
+# Secrets are referenced via os.environ/..., never written here.
+
+model_list:
+  - model_name: chat-default
+    litellm_params:
+      # Ollama's OpenAI-compatible endpoint; same shape as vLLM's.
+      # Keep in sync with OLLAMA_CHAT_MODEL in .env
+      model: openai/qwen2.5:7b-instruct
+      api_base: http://ollama:11434/v1
+      api_key: os.environ/OLLAMA_API_KEY
+    model_info:
+      mode: chat
+      # Local model: zero cost, but tokens are still counted for tpm limits
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+
+  - model_name: embed-default
+    litellm_params:
+      # Keep in sync with OLLAMA_EMBED_MODEL in .env
+      model: openai/bge-m3
+      api_base: http://ollama:11434/v1
+      api_key: os.environ/OLLAMA_API_KEY
+    model_info:
+      mode: embedding
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+
+litellm_settings:
+  # Don't let a slow local model hang a request forever
+  request_timeout: 120
+  drop_params: true
+  telemetry: false
+
+router_settings:
+  # Shared state for rpm/tpm/parallel limits across proxy workers/replicas
+  redis_host: os.environ/REDIS_HOST
+  redis_port: os.environ/REDIS_PORT
+  redis_password: os.environ/REDIS_PASSWORD
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  # Models are defined in this file (GitOps), not via the admin UI
+  store_model_in_db: false

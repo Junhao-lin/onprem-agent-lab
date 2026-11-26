@@ -57,6 +57,14 @@ docker compose ps   # 確認所有服務為 healthy；ollama-init 拉完模型�
 | redis | platform | —（僅內網） | LiteLLM 限流計數、快取（需密碼） |
 | ollama | platform | —（僅內網） | 推論後端（OpenAI 相容 API :11434），應用不得直連 |
 | ollama-init | platform | — | 一次性工作：拉取 `OLLAMA_CHAT_MODEL`、`OLLAMA_EMBED_MODEL` |
+| litellm | platform | `127.0.0.1:4000` | LLM Gateway；應用唯一入口（OpenAI 相容），Admin UI 在 `/ui` |
+
+應用一律呼叫 Gateway 的穩定別名，不直接指定後端模型：
+
+| 別名 | 後端（目前） | 用途 |
+|---|---|---|
+| `chat-default` | Ollama `qwen2.5:7b-instruct` | 對話 / 生成 |
+| `embed-default` | Ollama `bge-m3`（1024 維） | 向量化 |
 
 ## 應用 A：產品客服 RAG
 
