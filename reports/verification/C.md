@@ -109,3 +109,17 @@
    - 重啟後，Prometheus 中的 LiteLLM counter 歸零（例如 185 → 1）。
    - 測試輔助函式 `instant()` 查詢 15 分鐘時間窗，這段時間內新舊序列並存，函式取到舊序列的最後一個值，「counter 增加」的判斷因此失敗。
    - 舊序列離開時間窗後會自行恢復。之後會重跑確認，見下文。
+
+### 後續：重跑結果與安全事件
+
+- **舊序列離開 15 分鐘時間窗後重跑完整套件**：1 failed（`test_no_secret_values_in_tracked_files`）、151 passed。e2e 與 dashboard 測試全部恢復，`test_spend_log_increments` 也再次通過（spend log 已自行恢復寫入，細節見 incident 檔）。
+- **安全事件**：失敗的那一項正確抓到 `0e5830d` 中的 `reports/raw/C/pytest.txt` 含有 `POSTGRES_PASSWORD` 與 `REDIS_PASSWORD` 的明文。
+  - 原因：前一次執行有 22 個 error，pytest 的長 traceback 把 `env` fixture 整個 dict 印出來了。
+  - 掃描全部 55 個 commit 的所有 blob，受影響的只有這一個。
+  - 依夜間規則**沒有改寫歷史**。`4feff3a` 已替換這個檔案，並從兩處防止再發生：
+    - `env` fixture 改成 `MaskedEnv`，repr 只顯示變數名稱；
+    - `run_pytest.py` 寫檔前遮蔽所有密鑰。
+
+    兩處都有測試，也做過突變檢查。
+  - 是否輪換這兩組密碼、是否在 push 前清理分支歷史，留給使用者決定。
+- **最終完整套件**：154 passed, 1 xfailed（`reports/raw/C/pytest.txt`；wrapper 只遮蔽了一處，是測試 id 中的假 key）。
