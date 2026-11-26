@@ -38,7 +38,7 @@ STAT_TITLES = [p["title"] for p in PANELS if p["type"] == "stat"]
 TS_TITLES = [p["title"] for p in PANELS if p["type"] == "timeseries"]
 OUT_DIR = REPO / "reports/raw/1.9"
 VIEWPORT = {"width": 1600, "height": 1700}       # whole dashboard fits without scrolling
-EMPTY_TEXT = re.compile(r"^\s*No data( in range)?\s*$")
+EMPTY_TEXT = re.compile(r"\bno\s+data\b", re.I)   # "No data", "No data in range", ...
 EMPTY_STAT = {"–", "-", "N/A", "NaN", ""}
 
 pytestmark = [pytest.mark.llm, pytest.mark.browser]
@@ -85,7 +85,9 @@ def app_traffic(env, gateway, grafana, probe_image):
                        "body": {"vectors": {"size": 4, "distance": "Cosine"}}}])[0]["status"] == 200
         twice_across_scrape(grafana, qdrant_points, "sum(rest_responses_total)")
     finally:
-        probe([{"method": "DELETE", "url": col, "headers": h}])
+        deleted = probe([{"method": "DELETE", "url": col, "headers": h}])[0]
+        assert deleted["status"] == 200 and deleted["body"].get("result") is True, \
+            f"temporary Qdrant collection not cleaned up: HTTP {deleted['status']}"
 
 
 @pytest.fixture(scope="module")
@@ -168,7 +170,7 @@ def test_panels_do_not_overlap_and_fit_viewport(dashboard_page):
     for title, b in boxes:
         assert b and b["width"] > 0 and b["height"] > 0, title
         assert b["x"] >= 0 and b["x"] + b["width"] <= VIEWPORT["width"] + 1, f"{title} overflows horizontally"
-        assert b["y"] + b["height"] <= VIEWPORT["height"] + 1, f"{title} below the screenshot"
+        assert b["y"] >= 0 and b["y"] + b["height"] <= VIEWPORT["height"] + 1, f"{title} outside the screenshot"
     for i, (ta, a) in enumerate(boxes):
         for tb, b in boxes[i + 1:]:
             ix = min(a["x"] + a["width"], b["x"] + b["width"]) - max(a["x"], b["x"])
