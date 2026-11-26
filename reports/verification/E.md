@@ -85,3 +85,30 @@ Quick Start 的 Windows 驗證步驟無法照抄執行，且 README 含有遮罩
 | Codex 意見 | 處理 |
 |---|---|
 | 必修：marker 斷言只檢查「有宣告」，換成另一個已宣告的 marker 仍會通過 | 斷言改為：<br>• README 指令中的 marker 必須**正好是** `llm`<br>• 該行註解必須寫「跳過會呼叫模型的測試」<br>• `pyproject.toml` 中 `llm` marker 的說明必須包含「calls a model」<br>• `tests/e2e/test_grafana.py` 必須真的標了 `llm`<br>**突變檢查**：把 `not llm` 改成 `not browser`（這也是已宣告的 marker），測試失敗 |
+
+
+## 第 3 輪（commit `218d258`）
+
+> 夜間模式：Codex 唯讀審閱證據，未親自執行。
+
+### Codex 回覆（全文）
+
+## 總結：通過
+
+第 2 輪必修已修正；指定檔案與證據符合驗收條件，沒有剩餘必修問題。
+
+## 逐條驗收
+
+1. **Marker 回歸檢查：通過。** `test_readme.py` 現在要求 README 的 `-m "not …"` 使用 `llm`，並核對其說明、`pyproject.toml` 中 `llm` 的定義及 Grafana e2e 的標記。因此改成已宣告的 `browser` 會觸發測試失敗。
+2. **README 內容與 repo 一致：通過。** README 包含 Quick Start（含 `python -m uv`）、架構、測試方式、第一版壓測結果、已知限制與截圖；安全段落使用遮罩示例，未見真實 key 材料。
+3. **完整套件證據：通過。** `reports/raw/E/pytest.txt` 記錄 `165 passed, 1 xfailed`，退出碼為 0。
+
+## 剩餘問題
+
+- 無必修或建議項。
+
+我沒有親自執行測試、腳本、Docker 或網路請求，也沒有讀取 `.env`；僅閱讀指定檔案與 Git 歷史。
+
+### 結論
+
+**項目 E（1.11 README）驗證通過。** 修正後的完整套件：165 passed, 1 xfailed。
