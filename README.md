@@ -61,7 +61,18 @@ python scripts/bootstrap_keys.py
 | ollama | platform | —（僅內網） | 推論後端（OpenAI 相容 API :11434），應用不得直連 |
 | ollama-init | platform | — | 一次性工作：拉取 `OLLAMA_CHAT_MODEL`、`OLLAMA_EMBED_MODEL` |
 | litellm | platform | `127.0.0.1:4000` | LLM Gateway；應用唯一入口（OpenAI 相容），Admin UI 在 `/ui` |
-| qdrant | platform | `127.0.0.1:6333`（REST）、`127.0.0.1:6334`（gRPC） | 向量庫；需 `api-key`，Dashboard 在 `/dashboard`；telemetry 關閉 |
+| qdrant | platform | —（僅內網；除錯時見下方） | 向量庫（REST :6333、gRPC :6334）；需 `api-key`；telemetry 關閉 |
+
+**除錯用：暫時開放內部服務的 port**
+
+預設只有 LiteLLM 對 host 開放（`127.0.0.1:4000`）。需要從 host 檢查 Qdrant（例如開 `/dashboard`）時，
+加上 `docker-compose.debug.yml`，port 會綁在 `127.0.0.1`，可用 `.env` 的 `QDRANT_HTTP_PORT`、`QDRANT_GRPC_PORT` 改號：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.debug.yml --profile platform up -d qdrant
+# 除錯完關閉：拿掉 debug override 再 up 一次
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile platform up -d qdrant
+```
 
 應用一律呼叫 Gateway 的穩定別名，不直接指定後端模型：
 
@@ -108,7 +119,7 @@ TODO
 - 所有密鑰只放 `.env`（已列入 `.gitignore`），版控中僅有 `.env.example`。
 - 設定檔（`infra/litellm/config.yaml` 等）只以 `os.environ/...` 引用密鑰，不寫明文。
 - 腳本輸出的 key 一律遮罩為 **`sk-` + `…` + 末 4 碼**（例：`sk-…NFWw`）：前 3 碼固定為 `sk-` 無辨識度，末 4 碼足以區分不同 key，且為業界常見做法；完整 key 只寫入 `.env`。
-- Gateway、Qdrant 只綁 `127.0.0.1`；Postgres、Redis、Ollama 不對 host 開 port。
+- 只有 Gateway 對 host 開放且只綁 `127.0.0.1`；Postgres、Redis、Ollama、Qdrant 預設不對 host 開 port（除錯 override 見〈服務與 Port〉）。
 - Qdrant 所有資料／collection API 需 `api-key`；僅健康檢查（`/healthz`、`/readyz`、`/livez`）免驗證。
 
 ## 已知限制與 Roadmap

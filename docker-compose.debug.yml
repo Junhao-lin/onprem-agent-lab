@@ -1,0 +1,13 @@
+# Debug override: publish internal services to 127.0.0.1 for local inspection.
+# Not for normal use — by default these services are reachable only on the
+# internal backend network.
+# Usage (add to the usual -f list):
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml \
+#     -f docker-compose.debug.yml --profile platform up -d qdrant
+# Remove the override and re-run "up -d" to close the ports again.
+
+services:
+  qdrant:
+    ports:
+      - "127.0.0.1:${QDRANT_HTTP_PORT:-6333}:6333"   # REST + /dashboard
+      - "127.0.0.1:${QDRANT_GRPC_PORT:-6334}:6334"   # gRPC
