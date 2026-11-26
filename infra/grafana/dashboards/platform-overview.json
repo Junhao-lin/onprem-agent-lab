@@ -133,7 +133,7 @@
     {
       "type": "stat",
       "title": "Error rate",
-      "description": "Failed / total gateway requests, including 429 rate limits.",
+      "description": "Failed / total gateway requests, including 429 rate limits. Note: LiteLLM 1.83 does not meter requests rejected during authentication (401 bad key / model not allowed), so they are not counted here.",
       "id": 3,
       "datasource": {
         "type": "prometheus",
@@ -333,7 +333,7 @@
     {
       "type": "stat",
       "title": "In-flight now",
-      "description": "Requests currently being processed by the gateway (all keys).",
+      "description": "HTTP requests being processed by the gateway (all keys), excluding the Prometheus scrape itself. A concurrent health check can briefly add 1.",
       "id": 6,
       "datasource": {
         "type": "prometheus",
@@ -351,7 +351,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(litellm_in_flight_requests)",
+          "expr": "clamp_min(sum(litellm_in_flight_requests) - count(up{job=\"litellm\"} == 1), 0)",
           "refId": "A",
           "legendFormat": "__auto",
           "range": false,
@@ -592,7 +592,7 @@
     {
       "type": "timeseries",
       "title": "Failed requests / s by status",
-      "description": "Gateway failures by HTTP status. 429 = rate limit (expected under load), 401/403 = key or model not allowed, 5xx = backend errors.",
+      "description": "Gateway failures by HTTP status. 429 = rate limit (expected under load), 5xx = backend errors. Requests rejected during authentication (401 bad key / model not allowed) are not metered by LiteLLM 1.83.",
       "id": 10,
       "datasource": {
         "type": "prometheus",

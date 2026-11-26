@@ -1,7 +1,13 @@
 """Generate Grafana dashboards as code.
 
-    python infra/grafana/build_dashboards.py          # write JSON
-    python infra/grafana/build_dashboards.py --check  # exit 1 if JSON is stale
+    python infra/grafana/build_dashboards.py           # write JSON
+    python infra/grafana/build_dashboards.py --reload  # write JSON + tell Grafana to reload
+    python infra/grafana/build_dashboards.py --check   # exit 1 if JSON is stale
+
+Grafana's file watcher does not see changes through Windows/WSL bind
+mounts (verified: neither fs events nor updateIntervalSeconds polling
+fire), so --reload calls POST /api/admin/provisioning/dashboards/reload
+with the admin credentials from .env.
 
 Design rules (kept here so every panel follows them):
   * Each app has ONE fixed colour everywhere (colour follows the entity,
@@ -15,8 +21,10 @@ Stdlib only.
 """
 from __future__ import annotations
 
+import base64
 import json
 import sys
+import urllib.request
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent / "dashboards"
@@ -156,14 +164,21 @@ def platform_overview() -> dict:
         stat(lay, "Error rate",
              f"(sum(increase({FAIL}{{{APP}}}[$__range])) or vector(0))"
              f" / sum(increase({REQ}{{{APP}}}[$__range]))",
-             "percentunit", "Failed / total gateway requests, including 429 rate limits.",
+             "percentunit", "Failed / total gateway requests, including 429 rate limits. "
+             "Note: LiteLLM 1.83 does not meter requests rejected during authentication "
+             "(401 bad key / model not allowed), so they are not counted here.",
              thresholds=[(None, GOOD), (0.01, WARNING), (0.05, CRITICAL)], decimals=1),
         stat(lay, "p95 latency", p95(LAT, window="$__range"), "s",
              "95th percentile end-to-end request latency at the gateway.", decimals=2),
         stat(lay, "p95 TTFT", p95(TTFT, window="$__range"), "s",
              "95th percentile time to first token. Streaming requests only.", decimals=2),
-        stat(lay, "In-flight now", "sum(litellm_in_flight_requests)", "short",
-             "Requests currently being processed by the gateway (all keys).", decimals=0),
+        # The gauge counts every HTTP request on the worker, including the
+        # Prometheus scrape of /metrics itself, so it reads >= 1 at scrape time.
+        # Subtract that one scrape per gateway instance.
+        stat(lay, "In-flight now",
+             'clamp_min(sum(litellm_in_flight_requests) - count(up{job="litellm"} == 1), 0)', "short",
+             "HTTP requests being processed by the gateway (all keys), excluding the "
+             "Prometheus scrape itself. A concurrent health check can briefly add 1.", decimals=0),
         stat(lay, "Scrape targets", "min(up)", "short",
              "Whether Prometheus can scrape every target (prometheus, litellm, qdrant).",
              thresholds=[(None, CRITICAL), (1, GOOD)],
@@ -182,7 +197,8 @@ def platform_overview() -> dict:
                    [target(f"sum by (exception_status) (rate({FAIL}{{{APP}}}[$__rate_interval]))",
                            "{{exception_status}}")],
                    "reqps", "Gateway failures by HTTP status. 429 = rate limit (expected under "
-                   "load), 401/403 = key or model not allowed, 5xx = backend errors.",
+                   "load), 5xx = backend errors. Requests rejected during authentication "
+                   "(401 bad key / model not allowed) are not metered by LiteLLM 1.83.",
                    status_overrides, stack=True),
     ]
 
@@ -264,6 +280,21 @@ def render() -> dict[str, str]:
             for name, fn in DASHBOARDS.items()}
 
 
+def reload_grafana() -> None:
+    env = {}
+    for line in (OUT.parents[2] / ".env").read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            env[k] = v
+    token = base64.b64encode(f"{env['GRAFANA_ADMIN_USER']}:{env['GRAFANA_ADMIN_PASSWORD']}".encode()).decode()
+    req = urllib.request.Request(
+        f"http://127.0.0.1:{env.get('GRAFANA_PORT', '3000')}/api/admin/provisioning/dashboards/reload",
+        method="POST", headers={"Authorization": f"Basic {token}"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        print(f"grafana reload: HTTP {r.status}")
+
+
 def main() -> int:
     check = "--check" in sys.argv
     stale = []
@@ -278,6 +309,8 @@ def main() -> int:
     if stale:
         print(f"stale dashboards (run build_dashboards.py): {stale}", file=sys.stderr)
         return 1
+    if "--reload" in sys.argv and not check:
+        reload_grafana()
     return 0
 
 
