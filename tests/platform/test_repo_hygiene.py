@@ -89,3 +89,22 @@ def test_compose_images_pinned():
     assert images
     unpinned = [i for i in images if ":" not in i.split("/")[-1] or i.endswith(":latest")]
     assert not unpinned, unpinned
+
+
+def test_env_fixture_repr_hides_values(env):
+    """pytest prints fixture arguments in long tracebacks via repr(): never the values."""
+    from _pytest._io.saferepr import saferepr
+    secret = env["POSTGRES_PASSWORD"]
+    assert secret not in repr(env) and secret not in str(env) and secret not in saferepr(env)
+    assert "POSTGRES_PASSWORD" in repr(env)                  # names stay useful for debugging
+
+
+def test_pytest_wrapper_redacts_secrets():
+    """reports/raw/*/pytest.txt is written by scripts/overnight/run_pytest.py: it must redact."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("run_codex", REPO / "scripts/overnight/run_codex.py")
+    rc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rc)
+    secrets = rc.secret_values()
+    text, hits = rc.redact("tb: env = " + " ".join(secrets) + " key='sk-abcdefghijkl1234'", secrets)
+    assert hits >= len(secrets) and not any(s in text for s in secrets) and "sk-…1234" in text

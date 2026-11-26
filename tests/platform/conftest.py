@@ -34,6 +34,16 @@ def mask(key: str) -> str:
     return f"sk-…{key[-4:]}" if key and len(key) > 8 else "***"
 
 
+class MaskedEnv(dict):
+    """.env values with a masked repr. pytest prints fixture arguments (e.g. `env`)
+    in long tracebacks via repr(); this keeps secrets out of that output."""
+
+    def __repr__(self) -> str:
+        return "MaskedEnv({" + ", ".join(f"{k!r}: '***'" for k in self) + "})"
+
+    __str__ = __repr__
+
+
 def load_env(path: Path) -> dict[str, str]:
     env: dict[str, str] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -143,7 +153,7 @@ def env() -> dict[str, str]:
     path = REPO / ".env"
     if not path.exists():
         pytest.exit(".env not found: cp .env.example .env and fill it in", returncode=2)
-    return load_env(path)
+    return MaskedEnv(load_env(path))
 
 
 @pytest.fixture(scope="session")

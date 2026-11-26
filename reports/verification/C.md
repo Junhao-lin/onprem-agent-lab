@@ -57,3 +57,55 @@
 重新執行腳本，結果在 `reports/raw/C/repro-output.txt`：LiteLLM 1.83.14，A、B 兩個情境都重現。
 
 修正後的完整套件：152 passed, 1 xfailed。
+
+
+## 第 2 輪（commit `d113a62`）
+
+> 夜間模式：Codex 唯讀審閱證據，未親自執行。
+
+### Codex 回覆（全文）
+
+## 總結：不通過
+
+第 1 輪兩項必修已修正，且新輸出直接支持「兩次 400 後正常請求回 429」。但草稿仍有多項標示為 **observed** 的主張無法在指定的 `repro-output.txt` 找到對應證據，未符合驗收條件 2。
+
+## 逐條驗收
+
+1. **第 1 輪必修：通過。** 草稿列出 `/v1/embeddings` 和 `/v1/chat/completions` 兩種 401 端點，與腳本及輸出一致。B 情境在新 key 上記錄兩次 400、計數升至 +2，接著一般請求回 429。
+2. **Observed 主張與推論：不通過。** 計數、TTL、HTTP 狀態及三個串流均回 200 等主張可在輸出找到；上限外推也標為推論。但草稿其他標示為觀察的主張——例如錯誤未計入 Prometheus、400 的 metric 標籤，以及部署影響上限——不在 `repro-output.txt` 中。可能原因雖標成 hypothesis，該段的原始碼描述也不是這份輸出所能佐證。
+3. **重現步驟、影響、版本、未送出標示：通過。** 草稿有兩個情境的步驟、影響說明、LiteLLM 等版本資訊，並清楚標示未送出。
+4. **腳本安全與計數讀取：有條件通過。** 腳本只輸出遮罩 key；`TempKey` 在正常離開及建立失敗路徑都會嘗試刪除，並以 `/key/list` 查核；計數採穩定值輪詢，不依賴固定等待。不過輸出沒有記錄刪除查核結果，故無法由指定證據確認本次兩把 key 確已刪除。
+5. **維持現狀：通過。** `pytest.txt` 記錄 `xfail(strict=True)` 測試仍為 xfail、152 passed；README 仍記錄限制。`d113a62` 未修改測試或 README，亦未見加入防護。
+6. **完整套件：通過。** `pytest.txt` 結尾記錄 152 passed、1 xfailed。
+
+## 剩餘問題
+
+- **必修｜[litellm-parallel-counter.md](/D:/onprem-agent-lab/docs/upstream/litellm-parallel-counter.md:31)**：metrics、部署影響等觀察主張沒有 `repro-output.txt` 對應行。請補上驗收範圍允許的直接證據，或移除／改標為推論。
+- **建議｜[repro_parallel_counter.py](/D:/onprem-agent-lab/docs/upstream/repro_parallel_counter.py:144)**：刪除後雖會查詢確認，但輸出未記錄查核結果。建議印出成功確認，讓本次清理可由輸出核對。
+
+仍有必修項，因此判定不通過。**我沒有親自執行任何東西；只閱讀檔案與 Git 歷史。**
+
+### 依第 2 輪意見所做的修正（`0e5830d`）
+
+| Codex 意見 | 處理 |
+|---|---|
+| 必修：「標記為 observed 的主張」（metrics、部署限制）在 repro-output.txt 中找不到 | 腳本在每個情境結束時，從 gateway 的 `/metrics/` 讀出該臨時 key 的 `litellm_proxy_failed_requests_metric_total`：<br>• A 情境（401）：**沒有任何序列**<br>• B 情境（400）：`exception_status="None"`、`AttributeError` = 2.0；429 = 1.0<br>草稿中的部署限制段落改標為「Deployment context (from this repo's configuration, not measured here)」，並指向 `docker-compose.yml` 與 `virtual-keys.toml`。「計數值本身沒有被匯出」限定為「只檢查了 `/metrics/`」 |
+| 原始碼描述沒有證據 | 引用的 LiteLLM 原始碼行逐字存到 `reports/raw/C/litellm-source-excerpts.txt`，草稿也標明了出處 |
+| 建議：輸出沒有記錄刪除確認的結果 | 每個情境結束時印出 `cleanup: <alias> deleted (confirmed via /key/list)` |
+
+重跑腳本後的新輸出在 `reports/raw/C/repro-output.txt`。A、B 兩個情境都重現，兩把臨時 key 都已確認刪除。
+
+### 完整套件：與本項無關的失敗
+
+修正第 2 輪後的完整套件（`reports/raw/C/pytest.txt`）**沒有全數通過**：
+
+1. **`test_spend_log_increments` 失敗。** LiteLLM 自 16:18:05 UTC 起不再寫入 `LiteLLM_SpendLogs`，原因不明。
+   - 重啟 litellm 服務之後仍未恢復。
+   - Postgres 仍可寫入。
+   - 證據與已排除的原因記錄在 `reports/raw/incidents/spendlog-stall.txt`。
+   - 項目 C 只改了 `docs/upstream/` 與 `reports/`，沒有改 gateway 設定或行為。
+   - 這件事已列為**卡住、需要使用者決定**的事項。
+2. **e2e 與 dashboard 相關測試共 22 個 error、1 個 failure。** 這是上面重啟 LiteLLM 的副作用：
+   - 重啟後，Prometheus 中的 LiteLLM counter 歸零（例如 185 → 1）。
+   - 測試輔助函式 `instant()` 查詢 15 分鐘時間窗，這段時間內新舊序列並存，函式取到舊序列的最後一個值，「counter 增加」的判斷因此失敗。
+   - 舊序列離開時間窗後會自行恢復。之後會重跑確認，見下文。
