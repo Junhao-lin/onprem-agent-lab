@@ -1,0 +1,8 @@
+# python -m uv run python scripts/screenshot_dashboard.py --range 10m   (2026-11-26 ~16:38 UTC, right after app-traffic.txt)
+first attempt (before ZERO_OK for the error panel):
+NOT saved: 1 panel(s) without data:
+  Failed requests / s by status: all series flat zero
+-> in-limit traffic produced no errors (app-traffic.txt: every request 200), which is valid data;
+   the error panel is exempted from the non-zero rule only (legend must still be numeric).
+second attempt:
+saved docs\images\dashboard.png: 16 panels, all with data (range now-10m)

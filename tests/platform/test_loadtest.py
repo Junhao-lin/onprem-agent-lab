@@ -228,3 +228,20 @@ def test_failed_cleanup_is_reported(monkeypatch, tmp_path, capsys):
     err = capsys.readouterr().err
     assert rc == 3 and "could not be deleted" in err and "loadtest-" in err
     assert "sk-fakefakefakeWXYZ" not in err
+
+
+def test_app_traffic_stays_within_key_limits():
+    """loadtest/app_traffic.py (dashboard demo traffic) must pace each app below its
+    rpm_limit and keep at most one request in flight (< max_parallel_requests)."""
+    import tomllib
+    spec_t = importlib.util.spec_from_file_location("app_traffic", REPO / "loadtest/app_traffic.py")
+    at = importlib.util.module_from_spec(spec_t)
+    spec_t.loader.exec_module(at)
+    specs = tomllib.loads((REPO / "infra/litellm/virtual-keys.toml").read_text(encoding="utf-8"))["keys"]
+    fraction = 0.5                                        # the script's default
+    rag = at.SupportRag("http://x", "support-rag", "k", specs["support-rag"], fraction / 2)
+    tutor = at.Onboarding("http://x", "onboarding-agent", "k", specs["onboarding-agent"], fraction)
+    # support-rag sends 2 requests per turn (embed + chat)
+    assert 2 * 60 / rag.interval <= specs["support-rag"]["rpm_limit"] * fraction
+    assert 60 / tutor.interval <= specs["onboarding-agent"]["rpm_limit"] * fraction
+    assert all(s["max_parallel_requests"] >= 2 for s in specs.values())   # one worker per app
