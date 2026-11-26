@@ -87,3 +87,15 @@ def test_bench_end_to_end(gateway, tmp_path):
 def test_results_dir_never_tracked():
     """1.1 rule re-checked for the real output location."""
     assert run(["git", "check-ignore", "-q", "loadtest/results/20260101T000000Z/summary.md"]).returncode == 0
+
+
+def test_repro_degradation_plan():
+    """The ops-risk repro must bracket the overload with restarted references."""
+    spec_r = importlib.util.spec_from_file_location("repro_degradation", REPO / "loadtest/repro_degradation.py")
+    repro = importlib.util.module_from_spec(spec_r)
+    spec_r.loader.exec_module(repro)
+    steps = {name: (c, restart) for name, c, restart in repro.STEPS}
+    assert repro.STEPS[0][0] == "fresh" and repro.STEPS[-1][0] == "restarted"
+    assert steps["fresh"] == (2, True) and steps["restarted"] == (2, True)
+    assert steps["overload"][0] > 4 and not steps["overload"][1]          # > OLLAMA_NUM_PARALLEL
+    assert all(not r for n, (c, r) in steps.items() if n not in ("fresh", "restarted"))

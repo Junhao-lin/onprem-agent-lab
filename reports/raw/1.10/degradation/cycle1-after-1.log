@@ -1,0 +1,5 @@
+key: temporary loadtest-1795707375 (sk-…WvrA, no limits)
+output: reports\raw\1.10\degradation\cycle1-after-1
+warmup: HTTP 200 ttft=0.038s
+c=2   ok=8/8 429=0 err=0 ttft p50/p95=0.056/0.064s lat p95=6.65s decode p50=38.7 tok/s throughput=77.1 tok/s
+wrote reports\raw\1.10\degradation\cycle1-after-1\summary.md

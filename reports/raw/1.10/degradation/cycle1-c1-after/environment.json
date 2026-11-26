@@ -1,0 +1,14 @@
+{
+  "timestamp_utc": "2026-11-26 15:37:25",
+  "git_commit": "b6a611a",
+  "gateway_model_alias": "chat-default",
+  "backend_model": "qwen2.5:7b-instruct",
+  "ollama_version": "0.40.18",
+  "ollama_num_parallel": "4 (default)",
+  "gpu": "NVIDIA GeForce RTX 4070 Ti, 12282 MiB",
+  "key": "temporary loadtest-1795707445 (sk-…KVHA, no limits)",
+  "max_tokens": "256",
+  "requests_per_level": "max(8, 4 x concurrency)",
+  "prompts": "loadtest/prompts.jsonl (8 prompts)",
+  "backend_restart_per_level": "no"
+}
