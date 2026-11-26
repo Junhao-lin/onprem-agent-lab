@@ -42,12 +42,16 @@ TODO：架構圖。
 
 ```bash
 cp .env.example .env   # 填入所有 change-me
-# TODO: docker compose --profile platform up -d
+docker compose --profile platform up -d
+docker compose ps   # 確認所有服務為 healthy
 ```
 
 ## 服務與 Port
 
-TODO
+| 服務 | Profile | Host Port | 用途 |
+|---|---|---|---|
+| postgres | platform | —（僅內網） | LiteLLM 的 key / spend / log |
+| redis | platform | —（僅內網） | LiteLLM 限流計數、快取（需密碼） |
 
 ## 應用 A：產品客服 RAG
 
