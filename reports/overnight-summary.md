@@ -208,7 +208,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 ## 規則遵守情況
 
 - **分支與 commit**：
-  - 所有 commit 都在 `overnight` 分支上，共 31 個，從 `e25cac1` 開始。
+  - 所有 commit 都在 `overnight` 分支上，從 `e25cac1` 開始；完整清單用 `git log --oneline main..overnight` 查看。
   - `main` 仍停在 `e25cac1`。
   - 沒有 push：分支沒有設定 upstream。
   - 沒有改寫任何既有 commit。
