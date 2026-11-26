@@ -47,6 +47,9 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile platfor
 # 純 CPU：
 # docker compose --profile platform up -d
 docker compose ps   # 確認所有服務為 healthy；ollama-init 拉完模型後會 Exited (0)
+
+# 建立／更新各應用的 virtual key（寫入 .env，可重複執行）
+python scripts/bootstrap_keys.py
 ```
 
 ## 服務與 Port
@@ -65,6 +68,19 @@ docker compose ps   # 確認所有服務為 healthy；ollama-init 拉完模型�
 |---|---|---|
 | `chat-default` | Ollama `qwen2.5:7b-instruct` | 對話 / 生成 |
 | `embed-default` | Ollama `bge-m3`（1024 維） | 向量化 |
+
+### 每個應用一把 virtual key
+
+限額定義在 [`infra/litellm/virtual-keys.toml`](infra/litellm/virtual-keys.toml)（limits as code），
+由 `scripts/bootstrap_keys.py` 套用；key 值只寫進 `.env`。
+
+| Key alias | 可用模型 | rpm | tpm | 並發 |
+|---|---|---|---|---|
+| `support-rag` | chat-default, embed-default | 60 | 100k | 2 |
+| `onboarding-agent` | chat-default | 30 | 60k | 2 |
+
+- 兩個應用的並發上限加總 = Ollama `OLLAMA_NUM_PARALLEL`（4），一個應用無法佔滿推論資源；超額請求在 Gateway 直接回 429。
+- 限流計數存在 Redis（跨 worker／replica 共享）。為此啟用了 LiteLLM 的 Redis cache，但設 `mode: default_off`，**LLM 回應不會被快取**，除非請求明確帶 `cache: {"use-cache": true}`。
 
 ## 應用 A：產品客服 RAG
 

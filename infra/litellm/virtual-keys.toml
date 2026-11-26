@@ -1,0 +1,24 @@
+# Per-app virtual keys for the LiteLLM gateway (limits as code).
+# Applied by: python scripts/bootstrap_keys.py
+# Key VALUES are written to .env (git-ignored), never to this file.
+#
+# Capacity budget: Ollama runs OLLAMA_NUM_PARALLEL=4 slots per model.
+# max_parallel_requests across apps sums to 4, so one app cannot starve
+# the other; excess requests get 429 at the gateway instead of queueing
+# invisibly inside Ollama.
+
+[keys.support-rag]
+env_var = "SUPPORT_RAG_LLM_KEY"
+models = ["chat-default", "embed-default"]
+rpm_limit = 60                # requests / minute
+tpm_limit = 100000            # tokens / minute (prompt + completion)
+max_parallel_requests = 2     # in-flight requests
+description = "App A: camera product support RAG"
+
+[keys.onboarding-agent]
+env_var = "ONBOARDING_AGENT_LLM_KEY"
+models = ["chat-default"]
+rpm_limit = 30
+tpm_limit = 60000
+max_parallel_requests = 2
+description = "App B: onboarding tutor agent"
