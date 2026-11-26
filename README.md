@@ -115,9 +115,12 @@ TODO：YAML 課程、Docker 沙盒檢查、MCP 工具。
 `http://127.0.0.1:3000/d/platform-overview` — 由 [`infra/grafana/build_dashboards.py`](infra/grafana/build_dashboards.py) 產生 JSON，Grafana 以 provisioning 載入（UI 不可改）。修改後：
 
 ```bash
-python infra/grafana/build_dashboards.py          # 重新產生 JSON
-python infra/grafana/build_dashboards.py --check  # CI / pytest 用：JSON 與產生器不一致即失敗
+python infra/grafana/build_dashboards.py --reload  # 重新產生 JSON 並通知 Grafana 重新載入
+python infra/grafana/build_dashboards.py --check   # CI / pytest 用：JSON 與產生器不一致即失敗
 ```
+
+> Windows／WSL 的 bind mount 不會把檔案變更事件傳進容器，Grafana 的檔案監看與 `updateIntervalSeconds` 輪詢都偵測不到（已實測），
+> 因此 `--reload` 直接呼叫 `POST /api/admin/provisioning/dashboards/reload`。pytest 會比對 Grafana 實際載入的查詢與 repo 內 JSON，忘記 reload 會失敗。
 
 | 區塊 | 面板 |
 |---|---|
@@ -146,7 +149,7 @@ TODO：儀表板截圖
 ```bash
 pip install uv            # 若尚未安裝；或 python -m uv ...
 uv sync                   # 建立 .venv，安裝 pytest
-uv run pytest tests/platform            # 全部（約 45 秒）
+uv run pytest tests/platform            # 全部（約 2 分鐘）
 uv run pytest tests/platform -m "not llm"   # 跳過會呼叫模型的測試
 ```
 
@@ -188,6 +191,10 @@ TODO
 
 - LiteLLM `/metrics/` 目前免驗證（僅內網與 `127.0.0.1` 可達）。之後加入 Nginx 等反向代理對外時，**必須在代理層阻擋外部存取 `/metrics`**。
 - Ollama 不提供 Prometheus 指標；推論端（GPU、佇列）指標待換 vLLM 後補齊。
+- **LiteLLM 1.83 不計量認證階段被拒的請求**（401 key 錯誤／模型不在白名單），Error rate 與 Failed requests 面板看不到這類錯誤（有測試釘住此行為）。
+- **LiteLLM 1.83 並發限流計數漂移（上游 bug）**：「模型不在白名單」的 401 會讓該 key 的並發計數 -1（只減不加），使應用在計數視窗（約 60 秒）內可超出自己的並發上限；格式錯誤的 400 則 +1 不減，可能造成誤判 429。以 `xfail(strict=True)` 測試追蹤，上游修正後測試會提醒。總並發仍受 Ollama `OLLAMA_NUM_PARALLEL` 硬上限保護。
+- Prometheus `rate()`／`increase()` 看不到新序列的第一個樣本：某應用第一次出現某種流量（例如第一次串流）時，對應面板要到下一次抓取後才有資料。
+- `In-flight now` 扣除了 Prometheus 抓取 `/metrics` 本身那一個請求；剛好與健康檢查重疊時可能短暫顯示 1。
 
 **Roadmap**
 
