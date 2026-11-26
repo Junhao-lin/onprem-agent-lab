@@ -121,6 +121,28 @@ def hold_streams(key: str, n: int) -> list[int]:
     return statuses
 
 
+def failed_metric(alias: str) -> list[str]:
+    """litellm_proxy_failed_requests_metric_total series for one key alias, from the
+    gateway's Prometheus endpoint (/metrics/, no auth). Empty list = nothing recorded."""
+    with urllib.request.urlopen(BASE + "/metrics/", timeout=30) as r:
+        text = r.read().decode("utf-8", "replace")
+    out = []
+    for line in text.splitlines():
+        if line.startswith("litellm_proxy_failed_requests_metric_total{") and f'api_key_alias="{alias}"' in line:
+            labels = dict(kv.split("=", 1) for kv in line[line.index("{") + 1:line.rindex("}")].split('",'))
+            pick = {k: labels[k].strip('"') for k in ("route", "exception_status", "exception_class")}
+            out.append(f"{pick} = {line.rsplit(' ', 1)[1]}")
+    return out
+
+
+def show_metrics(alias: str) -> None:
+    time.sleep(1)   # Prometheus callback runs after the response
+    series = failed_metric(alias)
+    print(f"metrics: litellm_proxy_failed_requests_metric_total for {alias}:")
+    for s in series or ["(no series: these failures were not counted)"]:
+        print(f"    {s}")
+
+
 class TempKey:
     """Disposable key; deletion is verified, failure is reported (never raised)."""
 
@@ -151,7 +173,9 @@ class TempKey:
             return False
 
     def __exit__(self, *exc) -> None:
-        if not self.delete():
+        if self.delete():
+            print(f"cleanup: {self.alias} deleted (confirmed via /key/list)")
+        else:
             print(f"WARNING: temporary key {self.alias} may still exist; delete it via /key/delete",
                   file=sys.stderr)
 
@@ -170,6 +194,7 @@ def scenario_a() -> None:
         print("A4. impact: open 3 concurrent streams on this key (limit 2)")
         print(f"    statuses: {hold_streams(k.key, 3)}  (a correct limiter answers the 3rd with 429)")
         step("A5. after the streams finished", None, k.key)
+        show_metrics(k.alias)
 
 
 def scenario_b() -> None:
@@ -183,6 +208,7 @@ def scenario_b() -> None:
             step(f"B2.{i + 1} messages is a list of strings -> 400 (expect 0)", s, k.key)
         s, _ = call("/v1/chat/completions", k.key, CHAT_OK)
         step("B3. impact: one allowed chat, nothing in flight (expect 200)", s, k.key)
+        show_metrics(k.alias)
 
 
 def main() -> int:

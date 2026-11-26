@@ -1,0 +1,18 @@
+# LiteLLM spend-log writes stalled (observed 2026-11-26 ~16:18 UTC, during item C)
+
+## state before restart
+LiteLLM_SpendLogs count | newest startTime | db now: 1281|2026-11-26 16:18:05.23|2026-11-26 16:23:50.450381+00
+litellm container: Up 4 hours (healthy)
+test_spend_log_increments: failed 4 times in a row (30 s window); a master-key chat at ~16:20 did not land within 180 s
+no error mentioning spend/prisma/db write in docker compose logs litellm --since 40m
+
+## after restarting only the litellm service (~16:23 UTC)
+- litellm healthy again; LiteLLM_SpendLogs still 1281 rows, newest 16:18:05 (checked 16:24, 16:26)
+- test_spend_log_increments still fails (2 runs); a support-rag chat at ~16:25 returned 200 but no row
+- Postgres is writable: LiteLLM_VerificationToken.updated_at advanced to 16:25:51; not in recovery,
+  not read-only; container disk 8% used (host D: 95% used)
+- no Redis lock/spend keys; no ERROR from the spend writer (proxy logger runs at default level, so the
+  INFO/DEBUG lines of the spend-log queue monitor are not visible)
+- source: spend logs are queued in memory (db_spend_update_writer._insert_spend_log_to_db) and flushed
+  by _monitor_spend_logs_queue / update_spend (utils.py 4906-5110, poll 2 s, backoff <= 30 s)
+- NOT done (needs a decision): raising LiteLLM log level (config/env change), deeper debugging
