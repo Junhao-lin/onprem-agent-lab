@@ -41,7 +41,7 @@ OUT_DIR = REPO / "reports/raw/1.9"
 VIEWPORT = {"width": 1600, "height": 1700}       # whole dashboard fits without scrolling
 EMPTY_TEXT = re.compile(r"\bno\s+data\b", re.I)   # "No data", "No data in range", ...
 EMPTY_STAT = {"–", "-", "N/A", "NaN", ""}          # – = en dash, Grafana's empty value
-NUMBER = re.compile(r"^-?\d+(\.\d+)?(e[-+]?\d+)?")
+NUMBER = re.compile(r"^-?\d+(\.\d+)?(e[-+]?\d+)?(?=(\s*[^\d\s]+)?$)")   # value + optional unit, nothing else
 
 pytestmark = [pytest.mark.llm, pytest.mark.browser]
 
@@ -91,9 +91,12 @@ def app_traffic(env, gateway, grafana, probe_image):
         failure = e
         raise
     finally:
-        deleted = probe([{"method": "DELETE", "url": col, "headers": h}])[0]
-        cleaned = deleted["status"] == 200 and deleted["body"].get("result") is True
-        msg = f"temporary Qdrant collection not cleaned up: HTTP {deleted['status']}"
+        try:
+            deleted = probe([{"method": "DELETE", "url": col, "headers": h}])[0]
+            cleaned = deleted["status"] == 200 and deleted["body"].get("result") is True
+            msg = f"temporary Qdrant collection not cleaned up: HTTP {deleted['status']}"
+        except Exception as e:      # the cleanup call itself failed
+            cleaned, msg = False, f"temporary Qdrant collection not cleaned up: {type(e).__name__}"
         if failure is not None:
             if not cleaned:
                 failure.add_note(msg)       # keep the original error, report cleanup too
