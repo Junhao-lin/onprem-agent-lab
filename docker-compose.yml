@@ -11,6 +11,7 @@ networks:
 volumes:
   postgres-data:
   redis-data:
+  ollama-models:
 
 services:
   # ---------------------------------------------------------------
@@ -57,3 +58,47 @@ services:
       timeout: 3s
       retries: 10
       start_period: 5s
+
+  # ---------------------------------------------------------------
+  # Ollama — local inference, OpenAI-compatible API on :11434
+  # Internal only: apps must go through LiteLLM, never call this directly.
+  # GPU: add -f docker-compose.gpu.yml (see that file).
+  # ---------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:0.40.18
+    profiles: [platform]
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+      # Concurrent requests per loaded model (affects VRAM: KV cache x N)
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-4}
+      # Chat + embedding model resident at the same time
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-2}
+    volumes:
+      - ollama-models:/root/.ollama
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # One-shot job: pull the chat + embedding models into the ollama volume.
+  ollama-init:
+    image: ollama/ollama:0.40.18
+    profiles: [platform]
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODELS: >-
+        ${OLLAMA_CHAT_MODEL:?set OLLAMA_CHAT_MODEL in .env}
+        ${OLLAMA_EMBED_MODEL:?set OLLAMA_EMBED_MODEL in .env}
+    volumes:
+      - ./infra/ollama/pull-models.sh:/pull-models.sh:ro
+    entrypoint: ["/bin/sh", "/pull-models.sh"]
+    networks: [backend]

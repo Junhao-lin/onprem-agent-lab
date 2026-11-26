@@ -1,0 +1,14 @@
+# GPU override for Ollama (requires NVIDIA driver + Container Toolkit;
+# on Windows, Docker Desktop with the WSL2 backend provides this).
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile platform up -d
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
