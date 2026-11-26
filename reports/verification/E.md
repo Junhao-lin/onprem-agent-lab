@@ -55,3 +55,33 @@ Quick Start 的 Windows 驗證步驟無法照抄執行，且 README 含有遮罩
 | 建議：`test_monitoring.py` 的說明漏了項目 | 補上「資料來源已 provision 且健康」 |
 | 建議：退化不一定每次都立即發生 | 改成「兩輪實測中…；退化不一定立即出現，有一輪剛超載時只有部分請求變慢」 |
 | 建議：`test_readme.py` 斷言偏弱 | 加強為 8 項：<br>• 圖片必須以 `![…](docs/images/dashboard.png)` 嵌入<br>• README 中提到的所有 script 路徑、`-f` compose 檔、`--profile`、pytest 路徑與 marker 都必須真實存在<br>• Quick Start 有 1–5 步、`python -m uv` 的替代寫法，以及 bash 與 PowerShell 兩種範例<br>• 不得含真實 key 的材料<br>• 基準表的數值與條件（max_tokens、模型）必須和原始資料一致<br>• 維運風險的百分比與 tok/s 範圍，必須和退化原始資料逐輪計算的結果一致<br>• key 限額表必須和 toml 一致<br>突變檢查：把 profile 打錯、把 script 名稱打錯，都會讓測試失敗。Codex 提到的「圖說是否符合圖片內容」無法自動化，由人工看圖確認（見項目 D） |
+
+
+## 第 2 輪（commit `dc472d5`）
+
+> 夜間模式：Codex 唯讀審閱證據，未親自執行。
+
+### Codex 回覆（全文）
+
+## 總結：不通過
+
+第 1 輪兩項必修已修正；README 的內容與引用資料大致吻合，pytest 證據也記錄完整套件通過。不過，`test_readme.py` 只檢查 marker「有宣告」，錯用另一個已宣告的 marker 仍可能通過，未符合第 3 項驗收。
+
+## 逐條驗收
+
+1. **通過**：`dc472d5` 加入 PowerShell `.env` 載入與 `Invoke-RestMethod` 範例；README 的遮罩示例使用虛構尾碼，未見真實 key 尾碼。
+2. **通過**：README 包含 Quick Start（含 `python -m uv`）、架構、測試方式、第一版壓測、已知限制及截圖。compose、基準資料、`reports/raw/1.10/` 與截圖內容相符。PowerShell 範例符合 `.env.example` 的格式；我未親自執行驗證。
+3. **未通過**：檔名與 profile 有存在性檢查，基準數字也有對照原始資料；但 marker 斷言僅要求 README 中的 marker 存在於 `pyproject.toml`。若把 `not llm` 改成其他已宣告 marker，檢查仍可能通過。
+4. **通過**：`reports/raw/E/pytest.txt` 記錄 **165 passed、1 xfailed**。
+
+## 剩餘問題
+
+- [tests/platform/test_readme.py:45](/D:/onprem-agent-lab/tests/platform/test_readme.py:45) — **必修**：marker 斷言需驗證預期的 `llm` marker，或驗證命令語意，才能抓出錯用其他有效 marker 的情況。
+
+我沒有親自執行任何東西，也沒有讀取 `.env`。
+
+### 依第 2 輪意見所做的修正
+
+| Codex 意見 | 處理 |
+|---|---|
+| 必修：marker 斷言只檢查「有宣告」，換成另一個已宣告的 marker 仍會通過 | 斷言改為：<br>• README 指令中的 marker 必須**正好是** `llm`<br>• 該行註解必須寫「跳過會呼叫模型的測試」<br>• `pyproject.toml` 中 `llm` marker 的說明必須包含「calls a model」<br>• `tests/e2e/test_grafana.py` 必須真的標了 `llm`<br>**突變檢查**：把 `not llm` 改成 `not browser`（這也是已宣告的 marker），測試失敗 |

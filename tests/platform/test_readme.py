@@ -42,10 +42,17 @@ def test_commands_reference_real_files_profiles_and_markers():
                re.search(rf"profiles:\s*\n\s*-\s*{p}\b", COMPOSE) for p in profiles), profiles
     paths = set(re.findall(r"pytest (tests/[\w/]+)", cmds))
     assert paths and [p for p in paths if not (REPO / p).exists()] == []
-    markers = set(re.findall(r'-m "not (\w+)"', cmds))
+    # The README promises: `-m "not llm"` skips the tests that call a model (incl. Grafana e2e).
+    # Pin both the marker name and what pyproject says it means, so swapping in another
+    # declared marker (e.g. "browser") fails here.
+    skip_lines = re.findall(r'^.*-m "not (\w+)".*$', cmds, re.M)
+    assert skip_lines and set(re.findall(r'-m "not (\w+)"', cmds)) == {"llm"}, skip_lines
+    assert all("跳過會呼叫模型的測試" in line for line in re.findall(r'^.*-m "not \w+".*$', cmds, re.M))
     pyproject = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
-    declared = {m.split(":")[0] for m in pyproject["tool"]["pytest"]["ini_options"]["markers"]}
-    assert markers and markers <= declared
+    declared = dict(m.split(":", 1) for m in pyproject["tool"]["pytest"]["ini_options"]["markers"])
+    assert "calls a model" in declared["llm"]
+    # the e2e module really is llm-marked, as the README comment claims
+    assert "pytest.mark.llm" in (REPO / "tests/e2e/test_grafana.py").read_text(encoding="utf-8")
 
 
 def test_quick_start_steps_and_uv_fallback():
