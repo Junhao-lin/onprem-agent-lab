@@ -39,6 +39,7 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -91,6 +92,19 @@ def api(base: str, key: str, method: str, path: str, body: dict | None = None) -
             return r.status, json.loads(r.read() or b"{}")
     except urllib.error.HTTPError as e:
         return e.code, {}
+
+
+def delete_temp_key(base: str, master: str, alias: str) -> bool:
+    """Delete the temporary key and confirm it is gone. Never raises: it runs in
+    a finally block and must not mask the original error."""
+    try:
+        status, _ = api(base, master, "POST", "/key/delete", {"key_aliases": [alias]})
+        if status != 200:
+            return False
+        status, body = api(base, master, "GET", "/key/list?" + urllib.parse.urlencode({"key_alias": alias}))
+        return status == 200 and body.get("keys") == []
+    except Exception:
+        return False
 
 
 # --------------------------------------------------------------------------
@@ -340,11 +354,12 @@ def main(argv: list[str] | None = None) -> int:
         key = body["key"]
         key_label = f"temporary {temp_alias} ({mask(key)}, no limits)"
 
-    out = args.out or RESULTS_DIR / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out.mkdir(parents=True, exist_ok=True)
     summaries: list[LevelSummary] = []
     all_results: list[Result] = []
+    cleanup_failed = False
     try:
+        out = args.out or RESULTS_DIR / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        out.mkdir(parents=True, exist_ok=True)
         meta = environment(env, args.model, key_label, args)
         print(f"key: {key_label}\noutput: {out}")
         def warmup():
@@ -367,8 +382,10 @@ def main(argv: list[str] | None = None) -> int:
                   f"lat p95={fmt(s.latency_p95_s)}s decode p50={fmt(s.decode_tps_p50, 1)} tok/s "
                   f"throughput={fmt(s.throughput_tps, 1)} tok/s")
     finally:
-        if temp_alias:
-            api(base, master, "POST", "/key/delete", {"key_aliases": [temp_alias]})
+        if temp_alias and not delete_temp_key(base, master, temp_alias):
+            cleanup_failed = True
+            print(f"ERROR: temporary key {temp_alias} could not be deleted; remove it with "
+                  f"POST /key/delete {{\"key_aliases\": [\"{temp_alias}\"]}}", file=sys.stderr)
 
     with open(out / "requests.csv", "w", newline="", encoding="utf-8") as f:
         cols = [k for k in asdict(Result(0, 0, 0, False)) if k != "started_at"]
@@ -383,6 +400,8 @@ def main(argv: list[str] | None = None) -> int:
     (out / "environment.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n",
                                           encoding="utf-8", newline="\n")
     print(f"wrote {out / 'summary.md'}")
+    if cleanup_failed:
+        return 3
     failed = any(s.other_errors for s in summaries)
     return 1 if failed else 0
 

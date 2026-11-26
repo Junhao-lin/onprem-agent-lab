@@ -18,6 +18,7 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+xfail_strict = true
 markers = [
     "llm: calls a model through the gateway or Ollama (slower, uses GPU)",
     "browser: drives a headless Chromium via Playwright (needs `playwright install chromium`)",
