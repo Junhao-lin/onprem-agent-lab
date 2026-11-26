@@ -3,13 +3,15 @@ import pytest
 
 from conftest import PLATFORM_SERVICES, compose, inspect, redis_cli, psql, probe
 
-# Only the gateway may be published, and only on loopback.
-HOST_EXPOSED = {"litellm": {"4000/tcp"}}
+# Only the gateway and Grafana may be published, and only on loopback.
+HOST_EXPOSED = {"litellm": {"4000/tcp"}, "grafana": {"3000/tcp"}}
 NAMED_VOLUMES = {
     "postgres": "/var/lib/postgresql/data",
     "redis": "/data",
     "ollama": "/root/.ollama",
     "qdrant": "/qdrant/storage",
+    "prometheus": "/prometheus",
+    "grafana": "/var/lib/grafana",
 }
 
 

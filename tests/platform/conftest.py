@@ -25,7 +25,8 @@ COMPOSE_FILES = ["-f", "docker-compose.yml", "-f", "docker-compose.gpu.yml"]
 NETWORK = "oal-backend"
 PROBE_IMAGE = "python:3.12.16-alpine3.24"
 TMP_PREFIX = "pytest-tmp-"  # alias / collection prefix for disposable resources
-PLATFORM_SERVICES = ["postgres", "redis", "ollama", "litellm", "qdrant"]
+PLATFORM_SERVICES = ["postgres", "redis", "ollama", "litellm", "qdrant", "prometheus", "grafana"]
+PROFILES = ["--profile", "platform", "--profile", "monitoring"]
 
 
 def mask(key: str) -> str:
@@ -53,7 +54,7 @@ def run(cmd: list[str], *, input: str | None = None, check: bool = False,
 
 
 def compose(*args: str, **kw) -> subprocess.CompletedProcess:
-    return run(["docker", "compose", *COMPOSE_FILES, "--profile", "platform", *args], **kw)
+    return run(["docker", "compose", *COMPOSE_FILES, *PROFILES, *args], **kw)
 
 
 def container_id(service: str) -> str:
@@ -154,7 +155,7 @@ def stack_up(env):
     missing = [s for s in PLATFORM_SERVICES if health.get(s) != "healthy"]
     if missing:
         pytest.exit(f"platform not healthy: {missing} (got {health}); "
-                    "run docker compose ... --profile platform up -d", returncode=3)
+                    "run docker compose ... --profile platform --profile monitoring up -d", returncode=3)
     return health
 
 

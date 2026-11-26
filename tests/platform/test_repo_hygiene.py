@@ -83,7 +83,7 @@ def test_model_names_in_sync():
 
 
 def test_compose_images_pinned():
-    cfg = subprocess.run(["docker", "compose", "-f", "docker-compose.yml", "--profile", "platform",
+    cfg = subprocess.run(["docker", "compose", "-f", "docker-compose.yml", "--profile", "platform", "--profile", "monitoring",
                           "config", "--images"], cwd=REPO, capture_output=True, text=True, check=True)
     images = cfg.stdout.split()
     assert images
