@@ -3,13 +3,16 @@
 Limit enforcement is proven with disposable keys (tmp_key fixture) that have
 tiny limits; the real app keys are only read, never modified.
 """
-import concurrent.futures as cf
 import hashlib
 import importlib.util
+import json
 import re
 import subprocess
 import sys
+import time
 import tomllib
+import urllib.error
+import urllib.request
 
 import pytest
 
@@ -38,9 +41,15 @@ def test_app_key_matches_limits_as_code(env, gateway, alias):
 
 
 @pytest.mark.parametrize("alias", SPECS)
-def test_app_alias_unique(gateway, alias):
-    r = gateway.request("GET", "/key/list", query={"key_alias": alias})
-    assert len(r.body["keys"]) == 1
+def test_app_alias_unique(env, gateway, alias):
+    """Exactly one key carries the alias, and it is the key stored in .env."""
+    r = gateway.request("GET", "/key/list",
+                        query={"key_alias": alias, "return_full_object": "true"})
+    assert r.status == 200
+    keys = r.body["keys"]
+    assert [k["key_alias"] for k in keys] == [alias], [k["key_alias"] for k in keys]
+    expected_token = hashlib.sha256(env[SPECS[alias]["env_var"]].encode()).hexdigest()
+    assert keys[0]["token"] == expected_token, f"{alias}: listed key is not the one in .env"
 
 
 def test_parallel_budget_matches_ollama_capacity(env):
@@ -73,16 +82,68 @@ def test_tpm_limit(gateway, tmp_key):
         codes.append(gateway.chat(k, "用三句話介紹網路攝影機", max_tokens=30).status)
         if codes[-1] == 429:
             break
-    assert codes[0] == 200 and codes[-1] == 429, codes
+    # Only 200/429 allowed: one or more 200s, then exactly one terminating 429.
+    assert set(codes) <= {200, 429}, codes
+    assert codes[-1] == 429 and codes.count(429) == 1 and len(codes) >= 2, codes
+
+
+def open_stream(gateway, key: str):
+    """Start a long streaming chat and return the open response once the first
+    content chunk has arrived, i.e. the request is provably in flight and
+    holds one parallel slot until the stream ends."""
+    req = urllib.request.Request(gateway.base + "/v1/chat/completions", method="POST",
+                                 data=json.dumps({
+                                     "model": "chat-default", "stream": True, "max_tokens": 400,
+                                     "temperature": 0,
+                                     "messages": [{"role": "user", "content":
+                                                   "請詳細介紹網路攝影機的十個功能，每個功能寫一段。"}]}).encode())
+    req.add_header("Authorization", f"Bearer {key}")
+    req.add_header("Content-Type", "application/json")
+    try:
+        resp = urllib.request.urlopen(req, timeout=120)
+    except urllib.error.HTTPError as e:
+        return e.code, None
+    for raw in resp:
+        line = raw.decode().strip()
+        if line.startswith("data:") and line != "data: [DONE]" and \
+                json.loads(line[5:])["choices"][0]["delta"].get("content"):
+            return resp.status, resp
+    raise AssertionError("stream ended before first content chunk")
+
+
+def drain(resp) -> None:
+    for raw in resp:
+        if raw.decode().strip() == "data: [DONE]":
+            break
+    resp.close()
 
 
 @pytest.mark.llm
 def test_parallel_limit(gateway, tmp_key):
-    k = tmp_key("parallel", max_parallel_requests=1)
-    with cf.ThreadPoolExecutor(max_workers=4) as pool:
-        codes = list(pool.map(lambda _: gateway.chat(k, "寫一段 50 字的產品介紹", max_tokens=64).status,
-                              range(4)))
-    assert 200 in codes and 429 in codes, codes
+    """Deterministic: hold N slots with open streams, so request N+1 must be 429;
+    after the streams finish, a new request must be 200 again.
+
+    The earlier version fired 4 requests at once and accepted any mix with
+    a 200 and a 429, which depended on thread timing. Holding the slots with
+    in-flight streams removes the race instead of loosening the assertion."""
+    limit = 2
+    k = tmp_key("parallel", max_parallel_requests=limit, rpm_limit=100)
+    held, codes = [], []
+    try:
+        for _ in range(limit):                       # requests 1..N: occupy slots
+            status, resp = open_stream(gateway, k)
+            codes.append(status)
+            if resp:
+                held.append(resp)
+        codes.append(gateway.chat(k).status)         # request N+1: over the limit
+    finally:
+        for resp in held:
+            drain(resp)
+    assert set(codes) <= {200, 429}, codes
+    assert codes == [200] * limit + [429], codes
+
+    time.sleep(1)  # fixed settle time for the async slot release after stream end
+    assert gateway.chat(k).status == 200, "slot not released after streams finished"
 
 
 @pytest.mark.llm
@@ -133,7 +194,13 @@ def test_bootstrap_replaces_orphan_alias(gateway, tmp_path):
     spec = {"env_var": "TMP_KEY", "models": ["chat-default"], "rpm_limit": 5,
             "tpm_limit": 500, "max_parallel_requests": 1}
     try:
-        gateway.request("POST", "/key/generate", body={"key_alias": alias, "models": ["chat-default"]})
+        # Precondition: an orphan key with this alias really exists.
+        orphan = gateway.request("POST", "/key/generate",
+                                 body={"key_alias": alias, "models": ["chat-default"]})
+        assert orphan.status == 200 and orphan.body.get("key"), f"orphan setup failed: {orphan.status}"
+        orphan_key = orphan.body["key"]
+        assert gateway.request("GET", "/key/info", query={"key": orphan_key}).status == 200
+
         gw = bk.Gateway(gateway.base, gateway.master_key)
         r1 = bk.apply_key(gw, alias, spec, bk.load_env(fake_env), rotate=False)
         k1 = bk.load_env(fake_env)["TMP_KEY"]
@@ -141,6 +208,11 @@ def test_bootstrap_replaces_orphan_alias(gateway, tmp_path):
         e = bk.load_env(fake_env)
         assert r1.startswith("created") and r2.startswith("updated")
         assert e["TMP_KEY"] == k1 and e["OTHER"] == "keep"
-        assert len(gateway.request("GET", "/key/list", query={"key_alias": alias}).body["keys"]) == 1
+        # The orphan was deleted (not just shadowed) and replaced by a different key.
+        assert k1 != orphan_key
+        assert gateway.request("GET", "/key/info", query={"key": orphan_key}).status != 200
+        listed = gateway.request("GET", "/key/list",
+                                 query={"key_alias": alias, "return_full_object": "true"}).body["keys"]
+        assert [x["token"] for x in listed] == [hashlib.sha256(k1.encode()).hexdigest()]
     finally:
         gateway.request("POST", "/key/delete", body={"key_aliases": [alias]})

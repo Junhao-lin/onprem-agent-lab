@@ -61,10 +61,20 @@ def test_postgres_query(env, stack_up):
     assert psql(env, "select 1") == "1"
 
 
+def pinned_tag(image_repo: str) -> str:
+    images = compose("config", "--images").stdout.split()
+    tags = [i.rsplit(":", 1)[1] for i in images if i.rsplit(":", 1)[0] == image_repo]
+    assert len(set(tags)) == 1, f"{image_repo}: expected one pinned tag, got {tags}"
+    return tags[0]
+
+
 def test_internal_services_reachable_in_network(stack_up, probe_image):
     r = probe([{"url": "http://ollama:11434/api/version"},
                {"url": "http://qdrant:6333/readyz"}])
     assert [x["status"] for x in r] == [200, 200], r
+    # Running Ollama must be the version pinned in docker-compose.yml.
+    assert r[0]["body"] == {"version": pinned_tag("ollama/ollama")}, r[0]["body"]
+    assert r[1]["body"] == "all shards are ready", r[1]["body"]
 
 
 def test_redis_password_not_in_command(stack_up, env):
