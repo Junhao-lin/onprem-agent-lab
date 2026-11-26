@@ -108,7 +108,31 @@ TODO：YAML 課程、Docker 沙盒檢查、MCP 工具。
 
 - **LiteLLM** 開啟 `prometheus` callback（免費版即可），`/metrics/` 提供請求數、tokens、延遲、TTFT、進行中請求等，皆帶 `api_key_alias` label，可依應用拆分。
 - **Qdrant** `/metrics` 需 API key：Prometheus 以 compose secret（值取自 `.env` 的 `QDRANT_API_KEY`）掛成 `/run/secrets/qdrant_api_key`，設定檔只寫 `credentials_file`。
-- **Grafana** 資料來源由 `infra/grafana/provisioning/` 自動建立（唯讀）；儀表板 JSON 放 `infra/grafana/dashboards/`（1.9）。
+- **Grafana** 資料來源由 `infra/grafana/provisioning/` 自動建立（唯讀）。
+
+### 儀表板（dashboards as code）
+
+`http://127.0.0.1:3000/d/platform-overview` — 由 [`infra/grafana/build_dashboards.py`](infra/grafana/build_dashboards.py) 產生 JSON，Grafana 以 provisioning 載入（UI 不可改）。修改後：
+
+```bash
+python infra/grafana/build_dashboards.py          # 重新產生 JSON
+python infra/grafana/build_dashboards.py --check  # CI / pytest 用：JSON 與產生器不一致即失敗
+```
+
+| 區塊 | 面板 |
+|---|---|
+| Overview（所選時間範圍） | Requests、Error rate、p95 latency、p95 TTFT、In-flight、Scrape targets |
+| Traffic per app | Requests/s by app；Failed requests/s by status（429 / 401·403 / 5xx） |
+| Latency per app | p95 request latency；p95 TTFT（僅串流請求） |
+| Tokens per app | Output tokens/s；Input tokens/s |
+| Vector store | Qdrant REST requests/s、p95 REST latency、Collections、Vectors |
+
+設計規則（由測試強制）：
+- **每個應用一個固定顏色**，所有面板一致：`support-rag` 藍 `#338ced`、`onboarding-agent` 橙 `#e76624`（已對 Grafana 深色底 `#181b1f` 驗證色盲辨識度與對比）；顏色跟著應用走，不因篩選或排名改變。
+- **狀態色保留給狀態**：429 黃、401/403 橘、5xx 紅、健康綠，從不用在應用序列上。
+- 每個面板只有一個 y 軸；圖例一律顯示應用名稱，不只靠顏色辨識。
+- `App` 變數自動排除測試用臨時 key（`pytest-tmp-*`）與 master key 流量（`None`）。
+- Grafana 預設深色主題（配色以深色底驗證）。
 - Ollama 本身不提供 Prometheus 指標；推論端指標待換 vLLM 後補齊。
 
 TODO：儀表板截圖
@@ -122,7 +146,7 @@ TODO：儀表板截圖
 ```bash
 pip install uv            # 若尚未安裝；或 python -m uv ...
 uv sync                   # 建立 .venv，安裝 pytest
-uv run pytest tests/platform            # 全部（約 15 秒）
+uv run pytest tests/platform            # 全部（約 45 秒）
 uv run pytest tests/platform -m "not llm"   # 跳過會呼叫模型的測試
 ```
 
@@ -133,6 +157,7 @@ uv run pytest tests/platform -m "not llm"   # 跳過會呼叫模型的測試
 | `test_gateway.py` | readiness（db + redis）、錯誤 key 401、模型清單只有別名、chat／串流／embedding 1024 維、spend log 寫入 |
 | `test_virtual_keys.py` | key 限額與 `virtual-keys.toml` 一致、模型白名單、rpm／tpm／並發觸發 429、限流計數在 Redis、回應不被快取、bootstrap 冪等且輸出只含 `sk-…末4碼` |
 | `test_monitoring.py` | Prometheus 三個 target 皆 up、Qdrant 抓取用 secret 檔、gateway 請求依 `api_key_alias` 出現在 Prometheus、Grafana 需登入、資料來源 provision 且健康、回報功能關閉 |
+| `test_dashboards.py` | JSON 與產生器一致、儀表板已 provision、每個面板查詢經 Grafana 執行無錯、新請求出現在 per-app 面板、`App` 變數排除測試／master 流量、固定配色與單一 y 軸規則 |
 | `test_qdrant.py` | 健康檢查免驗證、無 key／錯誤 key 401、經 gateway 產生 embedding → 寫入 → 查詢的端到端流程 |
 
 設計重點：
