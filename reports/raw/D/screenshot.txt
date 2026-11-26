@@ -20,8 +20,8 @@ saved docs\images\dashboard.png: 16 panels, all with data (range now-10m)
 - Qdrant panels: app_traffic.py does NOT call Qdrant (the RAG app does not exist yet). The only
   Qdrant REST activity inside the 10-minute range is at 00:30:15 UTC+8 (reports/raw/D/qdrant-activity.txt,
   queried from Prometheus). It matches tests/platform/test_qdrant.py::test_end_to_end_gateway_embedding_roundtrip
-  in that 00:26:55 run (line 139 of the redacted copy, at 83 % of a 3m07s run, i.e. ~00:29:30; the
+  in that 00:26:55 run (line 142 of the redacted copy, line 139 of the original, at 83 % of a 3m07s run, i.e. ~00:29:30; the
   scrape at 00:30:15 picks it up). The tests/e2e Qdrant fixture did not run there: e2e errored
-  (lines 12, 1153). Collections = 0 and Vectors = 0 are real current values: the test collection
+  (lines 15, 1156 of the redacted copy). Collections = 0 and Vectors = 0 are real current values: the test collection
   was deleted, and no app collection exists yet.
 - Error panel: all zero because every app_traffic request returned 200 (see app-traffic.txt).
