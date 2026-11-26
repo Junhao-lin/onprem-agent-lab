@@ -105,6 +105,9 @@ TODO
 ## 安全性
 
 - 所有密鑰只放 `.env`（已列入 `.gitignore`），版控中僅有 `.env.example`。
+- 設定檔（`infra/litellm/config.yaml` 等）只以 `os.environ/...` 引用密鑰，不寫明文。
+- 腳本輸出的 key 一律遮罩為 **`sk-` + `…` + 末 4 碼**（例：`sk-…NFWw`）：前 3 碼固定為 `sk-` 無辨識度，末 4 碼足以區分不同 key，且為業界常見做法；完整 key 只寫入 `.env`。
+- Gateway 只綁 `127.0.0.1`；Postgres、Redis、Ollama 不對 host 開 port。
 
 ## 已知限制與 Roadmap
 
