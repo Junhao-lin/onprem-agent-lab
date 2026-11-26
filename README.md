@@ -72,7 +72,7 @@ flowchart LR
 ```
 
 - **對外只開兩個 port，而且都只綁 `127.0.0.1`**：Gateway（4000）與 Grafana（3000）。其他服務只在內部網路 `oal-backend` 上。應用不能直接連 Ollama，所有推論都要經過 Gateway 的限流。
-- **並發預算**：Ollama 有 `OLLAMA_NUM_PARALLEL=4` 個平行處理槽位。兩把應用 key 的並發上限是 2 + 2 = 4，加總剛好等於槽位數，所以一個應用無法佔滿 GPU。壓測證實吞吐量在並發 4 時就已飽和，見〈壓測與基準結果〉。
+- **並發預算**：Ollama 有 `OLLAMA_NUM_PARALLEL=4` 個平行處理槽位。兩把應用 key 的並發上限是 2 + 2 = 4，加總剛好等於槽位數：單一 key 同時最多 2 個請求，另一個應用至少保有 2 個槽位。這是請求數的上限，不是 GPU 資源配額；計數漂移時可能暫時失準，見〈已知限制〉。壓測證實吞吐量在並發 4 時就已飽和，見〈壓測與基準結果〉。
 - **設定都放在版本控制**：
   - [`docker-compose.yml`](docker-compose.yml)：服務定義；可用 `docker-compose.gpu.yml` 啟用 GPU、用 `docker-compose.debug.yml` 開放除錯用 port；
   - [`infra/litellm/config.yaml`](infra/litellm/config.yaml)：模型別名；
@@ -130,13 +130,28 @@ python scripts/bootstrap_keys.py --rotate   # 需要時強制換新 key
 
 **4. 確認可用**
 
+經 Gateway 呼叫模型。兩種寫法都已在本機實測，回應的 `model` 為 `chat-default`。
+
+bash（Linux、macOS、Windows 的 Git Bash）：
+
 ```bash
-# 經 Gateway 呼叫模型（bash；Windows PowerShell 請改用 curl.exe，並注意引號）
 set -a; . ./.env; set +a          # 把 .env 載入目前的 shell（不會印出任何值）
 curl -s http://127.0.0.1:4000/v1/chat/completions \
   -H "Authorization: Bearer $SUPPORT_RAG_LLM_KEY" -H "Content-Type: application/json" \
   -d '{"model":"chat-default","messages":[{"role":"user","content":"Hello"}],"max_tokens":32}'
 ```
+
+Windows PowerShell：
+
+```powershell
+# 把 .env 載入目前這個 PowerShell 視窗的環境變數（不會印出任何值）
+Get-Content .env | Where-Object { $_ -match '^\s*([^#=\s]+)\s*=(.*)$' } | ForEach-Object { Set-Item "env:$($Matches[1])" $Matches[2].Trim() }
+$body = '{"model":"chat-default","messages":[{"role":"user","content":"Hello"}],"max_tokens":32}'
+Invoke-RestMethod http://127.0.0.1:4000/v1/chat/completions -Method Post `
+  -Headers @{ Authorization = "Bearer $env:SUPPORT_RAG_LLM_KEY" } -ContentType 'application/json' -Body $body
+```
+
+> 範例的提示詞刻意只用 ASCII：在 Windows 的 Git Bash 中，命令列參數裡的中文會被轉碼，導致 JSON 錯誤。
 
 - Grafana：<http://127.0.0.1:3000/d/platform-overview>，帳密是 `.env` 的 `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`。
 - 想讓儀表板有資料，可以跑一段示範流量：`python loadtest/app_traffic.py --duration 300`。它使用正式 key，速率在限額內。
@@ -195,7 +210,7 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile platfor
 | `support-rag` | chat-default, embed-default | 60 | 100k | 2 |
 | `onboarding-agent` | chat-default | 30 | 60k | 2 |
 
-- 兩個應用的並發上限加總等於 Ollama 的 `OLLAMA_NUM_PARALLEL`（4），所以一個應用無法佔滿推論資源。超額的請求由 Gateway 直接回 429。
+- 兩個應用的並發上限加總等於 Ollama 的 `OLLAMA_NUM_PARALLEL`（4）：單一 key 同時最多 2 個請求，另一個應用至少保有 2 個槽位。超額的請求由 Gateway 直接回 429。例外見〈已知限制〉中的並發計數漂移。
 - 限流計數存在 Redis，可以跨 worker 與 replica 共享。為此啟用了 LiteLLM 的 Redis cache，但設成 `mode: default_off`，因此 **LLM 回應不會被快取**，除非請求明確帶 `cache: {"use-cache": true}`。
 
 ## 可觀測性
@@ -252,7 +267,7 @@ python -m uv run python scripts/screenshot_dashboard.py --range 10m
 python -m uv sync
 python -m uv run playwright install chromium     # 第一次需要（瀏覽器測試用）
 python -m uv run pytest                          # 全部，約 5 分鐘
-python -m uv run pytest -m "not llm"             # 跳過會呼叫模型的測試（約 20 秒）
+python -m uv run pytest -m "not llm"             # 跳過會呼叫模型的測試，包括 Grafana e2e（約 20 秒）
 python -m uv run pytest tests/e2e                # 只跑 Grafana 瀏覽器檢查（約 2.5 分鐘）
 ```
 
@@ -262,7 +277,7 @@ python -m uv run pytest tests/e2e                # 只跑 Grafana 瀏覽器檢�
 | `tests/platform/test_containers.py` | 服務都是 healthy、ollama-init 以 0 結束、**只有 gateway 與 Grafana 對 host 開 port，而且只綁 127.0.0.1**、使用 named volume、Redis 拒絕未認證連線、Qdrant telemetry 已關閉 |
 | `tests/platform/test_gateway.py` | readiness（db + redis）、錯誤的 key 回 401、模型清單只有別名、chat／串流／embedding（1024 維）、spend log 有寫入 |
 | `tests/platform/test_virtual_keys.py` | key 的限額與 `virtual-keys.toml` 一致、模型白名單、rpm／tpm／並發會觸發 429、限流計數存在 Redis、回應不被快取、bootstrap 可重複執行且輸出只含 `sk-…末4碼` |
-| `tests/platform/test_monitoring.py` | Prometheus 的 target 全部 up、Qdrant 的抓取使用 secret 檔、gateway 請求依 `api_key_alias` 出現在 Prometheus、Grafana 需要登入且回報已關閉 |
+| `tests/platform/test_monitoring.py` | Prometheus 的 target 全部 up、Qdrant 的抓取使用 secret 檔、gateway 請求依 `api_key_alias` 出現在 Prometheus、Grafana 需要登入、資料來源已 provision 且健康、回報已關閉 |
 | `tests/platform/test_dashboards.py` | JSON 與產生器一致、Grafana 實際載入的就是 repo 版本、每個面板的查詢都能執行、真實應用的流量／429／TTFT 會出現在對應面板、閒置時 In-flight 為 0、固定配色規則；另有 1 個 `xfail(strict)` 測試追蹤 LiteLLM 的上游 bug |
 | `tests/platform/test_qdrant.py` | 健康檢查不需驗證、資料 API 需要 key、gateway embedding → Qdrant 寫入 → 查詢的端到端流程 |
 | `tests/platform/test_loadtest.py` | 壓測工具的指標定義（用假的 SSE 伺服器驗證 TTFT 與 decode 公式）、percentile 計算、臨時 key 一定會被刪除（含失敗路徑）、示範流量不超過限額、一次小型端到端壓測 |
@@ -303,7 +318,7 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
 | 16 | 10.699 s | 10.769 s | 14.25 s | 73.3 | 288.4 |
 
 - **吞吐量在並發 4 時飽和**，4 剛好就是 Ollama 的平行槽數。再增加並發只會拉長排隊時間，TTFT 隨之線性上升。因此兩把應用 key 的並發上限加總設為 4，超量時由 Gateway 立即回 429。
-- **維運風險**：Ollama 0.40.18 只要處理過一次超過槽位數的並發，之後 2 個同時進行的請求，吞吐量就會掉 46–53%（約 165 → 77–89 tok/s），而且會一直維持，直到重啟 Ollama 才恢復。並發 1 與並發 4 不受影響。實測數字與緩解選項見基準報告的〈Operational risk〉一節。
+- **維運風險**：在兩輪實測中，Ollama 0.40.18 處理過一次超過槽位數的並發後，2 個同時進行的請求吞吐量都下降 46–53%（約 165 → 77–89 tok/s），直到重啟 Ollama 才恢復。退化不一定立即出現：有一輪剛超載時只有部分請求變慢。並發 1 與並發 4 不受影響。實測數字與緩解選項見基準報告的〈Operational risk〉一節。
 - **測試條件的限制**：
   - 測試機是同時在跑其他程式的桌機；
   - 每一級只跑一輪，樣本也小；
@@ -313,7 +328,7 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
 
 - 所有密鑰只放在 `.env`（已列入 `.gitignore`），版本控制中只有 `.env.example`。
 - 設定檔（例如 `infra/litellm/config.yaml`）只透過 `os.environ/...` 引用密鑰，不寫明文。
-- 腳本輸出的 key 一律遮罩為 **`sk-` + `…` + 末 4 碼**（例如 `sk-…NFWw`）：
+- 腳本輸出的 key 一律遮罩為 **`sk-` + `…` + 末 4 碼**（例如 `sk-…AbCd`，這是虛構的範例）：
   - 前 3 碼固定是 `sk-`，沒有辨識度；
   - 末 4 碼足以區分不同的 key，也是業界常見做法；
   - 完整的 key 只寫進 `.env`。
