@@ -1,107 +1,135 @@
-# [Bug]: `max_parallel_requests` counter drifts on requests rejected before the call (401 model-not-allowed: −1, 400 in pre-call hook: +1)
+# [Bug]: `max_parallel_requests` counter drifts on requests rejected before the LLM call (401 model-not-allowed: −1, 400 from a pre-call hook: +1)
 
-> **Draft — not submitted.** Prepared from this repo's platform tests (task 1.9).
-> Before filing: search existing issues for "max_parallel_requests" / "parallel_request_limiter_v3",
-> re-run the repro on the latest LiteLLM release, and drop the repo-specific paths.
+> **Draft, not submitted.** Prepared from this repo's platform tests (task 1.9, re-measured 2026-11-27).
+> Before filing:
+> - search existing issues for "max_parallel_requests" / "parallel_request_limiter_v3";
+> - re-run on the latest LiteLLM release;
+> - replace the repo-specific harness below with the minimal setup.
 
 ## What happened?
 
-With a virtual key that has `max_parallel_requests` set and Redis configured for the rate limiter,
-requests that fail **before the LLM call** move the key's parallel-request counter in Redis
-without a matching opposite move:
+A virtual key has `max_parallel_requests` set, and Redis is configured for the rate limiter.
+Requests that fail **before the LLM call** change the key's parallel-request counter in Redis,
+with no matching change in the other direction:
 
-| Request | HTTP | Counter change | Expected |
+| Request (key allowed only `chat-default`, `max_parallel_requests: 2`) | HTTP | Counter change (observed) | Expected |
 |---|---|---|---|
-| chat to a model **not in the key's `models` list** | 401 | **−1** per request | 0 |
-| chat with malformed `messages` (a string instead of an object) | 400 | **+1** per request | 0 |
-| normal successful chat | 200 | 0 (+1 then −1) | 0 |
+| `/v1/embeddings` or `/v1/chat/completions` for a model **not in the key's `models`** | 401 | **−1** per request | 0 |
+| `/v1/chat/completions` whose `messages` is a list of strings | 400 | **+1** per request | 0 |
+| normal chat completion, streaming or not | 200 | 0 | 0 |
 
-The counter key is `{api_key:<sha256(key)>}:max_parallel_requests` with a TTL equal to the
-limiter window (60 s), refreshed on each update, so the drift persists while traffic continues.
+The counter key is `{api_key:<sha256(key)>}:max_parallel_requests`. Its TTL is reset to the
+limiter window (60 s) on every update (observed `ttl = 58–59s` after each step), so the drift
+lasts as long as the key keeps sending requests at least once a minute.
 
-### Impact
+### Impact (observed)
 
-- **Limit bypass (−1 drift):** after N "model not allowed" 401s, the key can run
-  `max_parallel_requests + N` requests concurrently until the counter key expires. A client that
-  sends a few requests for a disallowed model (by mistake or deliberately) raises its own
-  concurrency ceiling. Observed (step 5 below): a key limited to 2 with its counter at −2 held
-  3 streams with no 429.
-- **False 429s (+1 drift):** each malformed request that fails inside a pre-call hook leaks one
-  slot. With `max_parallel_requests: 2`, two such requests make the next legitimate request
-  return 429 until the window expires.
-- Metrics are not affected (see "Related" below), so the drift is invisible on dashboards.
+- **Limit bypass:** after three 401s the counter is −3. The key, limited to 2, then had
+  **3 concurrent streams all accepted (200, 200, 200)** instead of `200, 200, 429`.
+- **False 429:** after two malformed requests the counter is +2. The key's next ordinary request,
+  with nothing in flight, was **rejected with 429**.
+- Neither effect is visible in metrics (see *Related*). The 401s are not counted at all.
 
-In our deployment the impact is bounded: the inference backend (Ollama, 4 slots) is the hard
-limit, and both app keys sum to those 4 slots. But a per-key limit that a client can raise by
-sending bad requests defeats the purpose of per-tenant isolation.
+### Impact (inferred, not measured)
+
+- If the limiter admits a request while `counter < limit`, a key with counter −N can run up to
+  `limit + N` requests at once. We only measured N = 3 with 3 streams, not the upper bound.
+- A client could therefore raise its own concurrency ceiling by sending requests for a model it
+  is not allowed to use. This could happen by mistake (a misconfigured model name) or on purpose.
+
+In our deployment the damage is bounded: the inference backend (Ollama, 4 slots) is the hard
+limit, and the two app keys' limits sum to those 4 slots. Still, a per-key limit that a client
+can raise defeats per-tenant isolation.
 
 ## Steps to reproduce
 
-1. LiteLLM proxy with Redis for rate limiting (here: `litellm_settings.cache: true`,
-   `cache_params.type: redis`, `mode: default_off`; `router_settings.redis_*`), two models
-   `chat-default` and `embed-default`.
-2. Create a key allowed only one model and limited to 2 parallel requests:
+1. Run a LiteLLM proxy with Redis as the limiter store and two models, `chat-default` and
+   `embed-default`. This repo uses `litellm_settings.cache: true` with
+   `cache_params: {type: redis, mode: default_off}`, plus `router_settings.redis_host/port/password`.
+2. Create a key that is allowed one model and limited to 2 parallel requests:
    ```bash
    curl -s localhost:4000/key/generate -H "Authorization: Bearer $MASTER" \
      -H 'Content-Type: application/json' \
      -d '{"models": ["chat-default"], "max_parallel_requests": 2}'
    ```
-3. Read the counter after each step:
-   `redis-cli get "{api_key:$(printf %s "$KEY" | sha256sum | cut -d' ' -f1)}:max_parallel_requests"`
-4. Send one allowed chat completion (200), then three embedding requests to the disallowed
-   `embed-default` (401 each), then one chat completion whose `messages` is `["not-an-object"]`
-   (400), then another allowed chat completion.
+3. Read the counter, and its TTL, after each step:
+   ```bash
+   K="{api_key:$(printf %s "$KEY" | sha256sum | cut -d' ' -f1)}:max_parallel_requests"
+   redis-cli get "$K"; redis-cli ttl "$K"
+   ```
+4. **Scenario A:**
+   1. Send one allowed chat completion.
+   2. Send two `/v1/embeddings` requests and one `/v1/chat/completions` request with
+      `"model": "embed-default"`. Each returns 401.
+   3. Open 3 streaming chat completions at the same time.
+5. **Scenario B**, on a fresh key:
+   1. Send one allowed chat completion.
+   2. Send two chat completions with `"messages": ["not-an-object"]`. Each returns 400.
+   3. Send one allowed chat completion.
 
-A script that does exactly this against this repo's stack is
-[`repro_parallel_counter.py`](repro_parallel_counter.py) (prints masked keys only).
+**Verified only with this repo's harness.** [`repro_parallel_counter.py`](repro_parallel_counter.py)
+does exactly these steps against this repo's Docker Compose stack:
+- it needs the stack running and reads the master key from `.env`;
+- it uses a separate disposable key per scenario and confirms each key is deleted afterwards;
+- it prints masked keys only;
+- it reads the counter only after two consecutive reads agree, because failure callbacks run asynchronously.
 
-### Observed output
-
-Run on 2026-11-26 against LiteLLM 1.83.14 (raw file in this repo: `reports/raw/C/repro-output.txt`):
+### Observed output (2026-11-27, raw file `reports/raw/C/repro-output.txt`)
 
 ```
-key pytest-tmp-repro-counter (sk-…jrQQ): models=['chat-default'], max_parallel_requests=2
+run 2026-11-27 00:04:24 against http://127.0.0.1:4000
+litellm version: 1.83.14
 
-0. fresh key                                               HTTP -    counter = (nil)
-1. allowed chat completion (expect counter back to 0)      HTTP 200  counter = 0
-2.1 model not allowed for key -> 401 (expect unchanged)    HTTP 401  counter = -1
-2.2 model not allowed for key -> 401 (expect unchanged)    HTTP 401  counter = -2
-2.3 model not allowed for key -> 401 (expect unchanged)    HTTP 401  counter = -3
-3. malformed messages -> 400 (expect unchanged)            HTTP 400  counter = -2
-4. allowed chat completion again                           HTTP 200  counter = -2
+=== A: requests for a model the key is not allowed to use (401) ===
+key pytest-tmp-repro-a-1795709064835 (sk-…W2Lw): models=['chat-default'], max_parallel_requests=2
+A0. fresh key                                                  HTTP -    counter = (nil) ttl = -2s
+A1. allowed chat completion (expect 0)                         HTTP 200  counter = 0     ttl = 59s
+A2.1 /v1/embeddings, model not allowed -> 401 (expect 0)       HTTP 401  counter = -1    ttl = 59s
+A2.2 /v1/embeddings, model not allowed -> 401 (expect 0)       HTTP 401  counter = -2    ttl = 59s
+A3. /v1/chat/completions, model not allowed -> 401 (expect 0)  HTTP 401  counter = -3    ttl = 59s
+A4. impact: open 3 concurrent streams on this key (limit 2)
+    statuses: [200, 200, 200]  (a correct limiter answers the 3rd with 429)
+A5. after the streams finished                                 HTTP -    counter = -3    ttl = 56s
 
-5. impact: open 3 concurrent streams on a key limited to 2 (counter now -2)
-   statuses: [200, 200, 200]  (a correct limiter answers the 3rd with 429)
-6. after the streams finished                              HTTP -    counter = -2
+=== B: malformed request rejected in a pre-call hook (400) ===
+key pytest-tmp-repro-b-1795709072484 (sk-…Uz1w): models=['chat-default'], max_parallel_requests=2
+B0. fresh key                                                  HTTP -    counter = (nil) ttl = -2s
+B1. allowed chat completion (expect 0)                         HTTP 200  counter = 0     ttl = 59s
+B2.1 messages is a list of strings -> 400 (expect 0)           HTTP 400  counter = 1     ttl = 58s
+B2.2 messages is a list of strings -> 400 (expect 0)           HTTP 400  counter = 2     ttl = 58s
+B3. impact: one allowed chat, nothing in flight (expect 200)   HTTP 429  counter = 2     ttl = 59s
 ```
 
-The last step shows the impact directly. The key is limited to 2 parallel requests, but with its counter at −2 a third concurrent stream is accepted (200) instead of rejected (429).
+## Possible cause: hypothesis from reading the 1.83.14 source, not verified with a debugger
 
-## Likely cause (from reading the 1.83.14 source, not verified with a debugger)
+Paths are under `site-packages/litellm/`. Line numbers refer to the 1.83.14 image.
 
-`litellm/proxy/hooks/parallel_request_limiter_v3.py`:
+What the source shows:
 
-- `async_pre_call_hook` increments the parallel counter when the request passes auth.
-- `async_log_failure_event` **always** decrements it ("Decrement max parallel requests counter
-  for the API Key", `increment_value=-1`) when `user_api_key_hash` is present in the logging
-  metadata.
+- `proxy/hooks/parallel_request_limiter_v3.py`:
+  - `async_pre_call_hook` (line 1277) checks the limits and increments the counters.
+  - The success path decrements the parallel counter (`increment_value=-1`, around line 1593–1604).
+  - `async_log_failure_event` (line 1761) decrements it whenever the logging metadata contains
+    `user_api_key_hash` (lines 1783–1796). Nothing there checks whether this request ever incremented the counter.
+- `proxy/auth/auth_checks.py:2786` raises the "… not allowed to access model" `ProxyException`
+  during auth.
+- The 400 is raised in `litellm_enterprise/proxy/hooks/managed_files.py:632`
+  (`get_file_ids_from_messages`, `AttributeError: 'str' object has no attribute 'get'`). The
+  trace below shows it reached through `proxy/utils.py:1433` (`pre_call_hook` iterating callbacks).
 
-Hypothesis:
+Hypothesis, consistent with the observations but not traced:
 
-- The 401 "key not allowed to access model" is raised during auth, **before** the limiter's
-  pre-call hook increments, but the failure is still logged with the key hash, so the failure
-  callback decrements a counter that was never incremented → −1.
-- The 400 from a malformed `messages` list is raised by a **later** pre-call hook
-  (`litellm_enterprise/proxy/hooks/managed_files.py`, `get_file_ids_from_messages` →
-  `AttributeError: 'str' object has no attribute 'get'`), i.e. after the limiter incremented,
-  and that path does not reach `async_log_failure_event` → +1 never undone.
+- **401:** rejected in auth, before the limiter's pre-call hook increments. The failure is still
+  logged with the key hash, so `async_log_failure_event` decrements a counter that was never
+  incremented → −1.
+- **400:** raised by a callback that runs after the limiter's pre-call hook has incremented. That
+  path never reaches `async_log_failure_event` (or another decrement), so the +1 stays.
 
-A fix would pair increment and decrement explicitly (e.g. only decrement if this request
-incremented, tracked in request metadata), rather than decrementing on every failure.
+A fix would pair the increment and the decrement explicitly. For example, record in the request
+metadata that this request incremented the counter, and decrement only in that case, on every
+exit path, including exceptions in later pre-call hooks.
 
-## Relevant log output
-
-The 400 case (excerpt):
+## Relevant log output (400 case, excerpt)
 
 ```
 File ".../litellm/proxy/utils.py", line 1433, in pre_call_hook
@@ -114,28 +142,29 @@ INFO: ... "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
 
 ## Related observations (same version, possibly separate issues)
 
-- Auth-stage 401s (wrong key, model not allowed) are **not counted** in any Prometheus metric
-  (`litellm_proxy_failed_requests_metric_total` unchanged).
-- The malformed-request 400 above **is** counted in `litellm_proxy_failed_requests_metric_total`,
-  but with `exception_status="None"` and `exception_class="AttributeError"` instead of `400`.
-- A malformed request should arguably be rejected with a validation error before reaching
-  `managed_files.py`; the `AttributeError` there is itself a bug.
+- Auth-stage 401s (wrong key, model not allowed) are **not counted** in any Prometheus metric:
+  `litellm_proxy_failed_requests_metric_total` does not change. Pinned in this repo by
+  `tests/platform/test_dashboards.py::test_auth_rejections_are_not_metered`.
+- The malformed-request 400 **is** counted in `litellm_proxy_failed_requests_metric_total`, but
+  with `exception_status="None"` and `exception_class="AttributeError"` instead of `400`.
+- A malformed `messages` list should probably fail request validation before it reaches
+  `managed_files.py`. The `AttributeError` there looks like a bug of its own.
 
 ## Versions
 
 | | |
 |---|---|
-| LiteLLM | 1.83.14 (`ghcr.io/berriai/litellm-database:main-v1.83.14-stable`, digest `sha256:da4ab06d9d57da205263877425544d6df8e78147737b0dd8dc1e9e93a6d8ac2e`) |
+| LiteLLM | 1.83.14 (`ghcr.io/berriai/litellm-database:main-v1.83.14-stable`, digest `sha256:da4ab06d9d57da205263877425544d6df8e78147737b0dd8dc1e9e93a6d8ac2e`), reported by `/health/readiness` |
 | Python in image | 3.13.13 |
 | Redis | `redis:7-alpine` (password auth) |
 | Postgres | `postgres:16-alpine` |
-| Backend | Ollama 0.40.18 via `openai/` provider (backend is irrelevant: both failures happen before the call) |
+| Backend | Ollama 0.40.18 via the `openai/` provider. The backend should not matter, since both failures happen before the call. |
 | Host | Windows 11 + Docker Desktop (WSL2) |
 
-## How this repo tracks it
+## How this repo handles it (no mitigation, by decision)
 
 - `tests/platform/test_dashboards.py::test_auth_rejection_does_not_skew_parallel_counter` is
-  `xfail(strict=True)`: it turns into a failure once an upgrade fixes the bug, prompting us to
+  marked `xfail(strict=True)`. Once an upgrade fixes the bug, the test fails, as a reminder to
   remove the xfail and the README note.
 - Tests that check parallel limits use a key that never receives auth-rejected requests.
-- README "已知限制" documents the risk; no mitigation in place (decision: keep as-is for now).
+- The README section "已知限制" documents the risk. No gateway-side protection was added.

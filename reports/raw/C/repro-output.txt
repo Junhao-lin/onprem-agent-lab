@@ -1,13 +1,21 @@
-key pytest-tmp-repro-counter (sk-…jrQQ): models=['chat-default'], max_parallel_requests=2
+run 2026-11-27 00:04:24 against http://127.0.0.1:4000
+litellm version: 1.83.14
 
-0. fresh key                                               HTTP -    counter = (nil)
-1. allowed chat completion (expect counter back to 0)      HTTP 200  counter = 0
-2.1 model not allowed for key -> 401 (expect unchanged)    HTTP 401  counter = -1
-2.2 model not allowed for key -> 401 (expect unchanged)    HTTP 401  counter = -2
-2.3 model not allowed for key -> 401 (expect unchanged)    HTTP 401  counter = -3
-3. malformed messages -> 400 (expect unchanged)            HTTP 400  counter = -2
-4. allowed chat completion again                           HTTP 200  counter = -2
+=== A: requests for a model the key is not allowed to use (401) ===
+key pytest-tmp-repro-a-1795709064835 (sk-…W2Lw): models=['chat-default'], max_parallel_requests=2
+A0. fresh key                                                  HTTP -    counter = (nil) ttl = -2s
+A1. allowed chat completion (expect 0)                         HTTP 200  counter = 0     ttl = 59s
+A2.1 /v1/embeddings, model not allowed -> 401 (expect 0)       HTTP 401  counter = -1    ttl = 59s
+A2.2 /v1/embeddings, model not allowed -> 401 (expect 0)       HTTP 401  counter = -2    ttl = 59s
+A3. /v1/chat/completions, model not allowed -> 401 (expect 0)  HTTP 401  counter = -3    ttl = 59s
+A4. impact: open 3 concurrent streams on this key (limit 2)
+    statuses: [200, 200, 200]  (a correct limiter answers the 3rd with 429)
+A5. after the streams finished                                 HTTP -    counter = -3    ttl = 56s
 
-5. impact: open 3 concurrent streams on a key limited to 2 (counter now -2)
-   statuses: [200, 200, 200]  (a correct limiter answers the 3rd with 429)
-6. after the streams finished                              HTTP -    counter = -2
+=== B: malformed request rejected in a pre-call hook (400) ===
+key pytest-tmp-repro-b-1795709072484 (sk-…Uz1w): models=['chat-default'], max_parallel_requests=2
+B0. fresh key                                                  HTTP -    counter = (nil) ttl = -2s
+B1. allowed chat completion (expect 0)                         HTTP 200  counter = 0     ttl = 59s
+B2.1 messages is a list of strings -> 400 (expect 0)           HTTP 400  counter = 1     ttl = 58s
+B2.2 messages is a list of strings -> 400 (expect 0)           HTTP 400  counter = 2     ttl = 58s
+B3. impact: one allowed chat, nothing in flight (expect 200)   HTTP 429  counter = 2     ttl = 59s
