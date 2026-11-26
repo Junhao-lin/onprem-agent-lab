@@ -15,6 +15,7 @@ import argparse
 import re
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -101,6 +102,9 @@ def main() -> int:
             browser.close()
             if issues:
                 print(f"NOT saved: {len(issues)} panel(s) without data:", *issues, sep="\n  ")
+                if args.out.exists():
+                    stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(args.out.stat().st_mtime))
+                    print(f"NOTE: {args.out.relative_to(REPO)} is an OLDER capture ({stamp}), left unchanged")
                 return 1
             args.out.parent.mkdir(parents=True, exist_ok=True)
             args.out.write_bytes(shot.read_bytes())

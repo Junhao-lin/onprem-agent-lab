@@ -245,3 +245,61 @@ def test_app_traffic_stays_within_key_limits():
     assert 2 * 60 / rag.interval <= specs["support-rag"]["rpm_limit"] * fraction
     assert 60 / tutor.interval <= specs["onboarding-agent"]["rpm_limit"] * fraction
     assert all(s["max_parallel_requests"] >= 2 for s in specs.values())   # one worker per app
+
+
+def test_app_traffic_one_request_in_flight_per_app():
+    """Run both app loops against a fake gateway and measure in-flight requests per key."""
+    import http.server
+    import threading
+    import time as _t
+
+    spec_t = importlib.util.spec_from_file_location("app_traffic", REPO / "loadtest/app_traffic.py")
+    at = importlib.util.module_from_spec(spec_t)
+    spec_t.loader.exec_module(at)
+    lock, inflight, peak, seen = threading.Lock(), {}, {}, {}
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            key = self.headers["Authorization"]
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            with lock:
+                inflight[key] = inflight.get(key, 0) + 1
+                peak[key] = max(peak.get(key, 0), inflight[key])
+                seen[key] = seen.get(key, 0) + 1
+            try:
+                _t.sleep(0.05)
+                self.send_response(200)
+                self.end_headers()
+                if body.get("stream"):
+                    self.wfile.write(b'data: {"choices":[{"delta":{"content":"a"}}]}\n\ndata: [DONE]\n\n')
+                else:
+                    self.wfile.write(b"{}")
+            finally:
+                with lock:
+                    inflight[key] -= 1
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    fast = {"rpm_limit": 1200}                       # 0.05-0.1 s between turns: keeps the loop busy
+    apps = [at.SupportRag(base, "support-rag", "sk-a", fast, 1.0),
+            at.Onboarding(base, "onboarding-agent", "sk-b", fast, 1.0)]
+    deadline = _t.monotonic() + 1.5
+    threads = [threading.Thread(target=a.loop, args=(["q"], deadline, 0.0)) for a in apps]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    srv.shutdown()
+    assert seen.get("Bearer sk-a", 0) >= 6 and seen.get("Bearer sk-b", 0) >= 6, seen
+    assert peak == {"Bearer sk-a": 1, "Bearer sk-b": 1}, peak       # never 2 in flight per key
+    assert all(k.endswith(" 200") for a in apps for k in a.statuses), [a.statuses for a in apps]
+
+
+def test_app_traffic_rejects_fraction_above_limits():
+    proc = subprocess.run([sys.executable, "-I", "loadtest/app_traffic.py", "--fraction", "1.5"],
+                          cwd=REPO, capture_output=True, text=True, timeout=30)
+    assert proc.returncode == 2 and "--fraction" in proc.stderr

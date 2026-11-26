@@ -6,3 +6,16 @@ NOT saved: 1 panel(s) without data:
    the error panel is exempted from the non-zero rule only (legend must still be numeric).
 second attempt:
 saved docs\images\dashboard.png: 16 panels, all with data (range now-10m)
+
+## provenance of the data in docs/images/dashboard.png (added after Codex round 1)
+- time axis: the dashboard uses timezone "browser"; headless Chromium runs with the host time
+  zone, UTC+8. Axis 00:33-00:38 = 16:33-16:38 UTC = the app_traffic.py run. Capture at ~00:38 local
+  = ~16:38 UTC (git commit c77b4d5 is stamped 2026-11-27 00:53 +0800, after the capture).
+- LLM panels (requests, latency, TTFT, tokens, error rate) in 00:33-00:38: app_traffic.py with the
+  two production keys. The segment 00:28-00:31 at the left edge is the tail of the full pytest run
+  (C item), still inside the 10-minute range.
+- Qdrant panels: app_traffic.py does NOT call Qdrant (the RAG app does not exist yet). The Qdrant
+  request/latency points at ~00:30 come from the pytest run (tests/e2e fixture and test_qdrant
+  upsert/query on disposable collections). Collections = 0 and Vectors = 0 are real current values:
+  those collections were deleted, and no app collection exists yet.
+- Error panel: all zero because every app_traffic request returned 200 (see app-traffic.txt).

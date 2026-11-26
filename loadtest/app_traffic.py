@@ -138,6 +138,10 @@ def main() -> int:
     ap.add_argument("--fraction", type=float, default=0.5,
                     help="share of each key's rpm_limit to use; support-rag does 2 calls per turn (default 0.5)")
     args = ap.parse_args()
+    if not 0 < args.fraction <= 1:
+        ap.error("--fraction must be in (0, 1]: more would exceed the keys' rpm_limit")
+    if args.duration <= 0:
+        ap.error("--duration must be positive")
 
     env = load_env()
     specs = tomllib.loads((REPO / "infra/litellm/virtual-keys.toml").read_text(encoding="utf-8"))["keys"]
