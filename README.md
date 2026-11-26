@@ -108,7 +108,33 @@ TODO
 
 ## 測試與評測
 
-TODO：pytest、壓測（TTFT / tokens/s / p95 / 並發）、RAG 評測集。
+### 平台測試（pytest）
+
+需要平台已啟動（`--profile platform`）且 `.env` 已填好、已跑過 `bootstrap_keys.py`。
+
+```bash
+pip install uv            # 若尚未安裝；或 python -m uv ...
+uv sync                   # 建立 .venv，安裝 pytest
+uv run pytest tests/platform            # 全部（約 15 秒）
+uv run pytest tests/platform -m "not llm"   # 跳過會呼叫模型的測試
+```
+
+| 檔案 | 驗證內容 |
+|---|---|
+| `test_repo_hygiene.py` | `.env`／壓測結果不進版控、tracked 檔案無密鑰值、`.sh` 為 LF、image 皆釘版本、`.env` 與 gateway 模型名一致 |
+| `test_containers.py` | 服務 healthy、ollama-init exit 0、**只有 gateway 對 host 開 port 且綁 127.0.0.1**、named volume、Redis 未認證被拒、Qdrant telemetry 關閉（檢查容器環境變數） |
+| `test_gateway.py` | readiness（db + redis）、錯誤 key 401、模型清單只有別名、chat／串流／embedding 1024 維、spend log 寫入 |
+| `test_virtual_keys.py` | key 限額與 `virtual-keys.toml` 一致、模型白名單、rpm／tpm／並發觸發 429、限流計數在 Redis、回應不被快取、bootstrap 冪等且輸出只含 `sk-…末4碼` |
+| `test_qdrant.py` | 健康檢查免驗證、無 key／錯誤 key 401、經 gateway 產生 embedding → 寫入 → 查詢的端到端流程 |
+
+設計重點：
+- 內部服務沒有 host port，測試透過臨時 probe 容器（`python:3.12.16-alpine3.24`）在 `oal-backend` 網路內發 HTTP；請求內容（含密鑰）經 stdin 傳入，不出現在命令列。
+- 限流測試使用臨時 key（`pytest-tmp-` 前綴，極小限額），測完刪除；應用的正式 key 只讀不改。
+- 測試一律以 Python 撰寫，避免 shell 引號差異。
+
+### 壓測與 RAG 評測
+
+TODO：壓測（TTFT / tokens/s / p95 / 並發）、RAG 評測集。
 
 ## 切換到 vLLM
 
