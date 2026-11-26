@@ -33,6 +33,8 @@ litellm_settings:
   request_timeout: 120
   drop_params: true
   telemetry: false
+  # Expose Prometheus metrics on /metrics (scraped by prometheus service)
+  callbacks: ["prometheus"]
   # Redis cache is required so per-key rpm/tpm/parallel counters live in
   # Redis (shared across workers/replicas) instead of per-process memory.
   # (LiteLLM 1.83: the limiter only gets Redis via litellm.cache.)
