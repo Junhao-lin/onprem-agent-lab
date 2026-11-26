@@ -134,7 +134,7 @@ python infra/grafana/build_dashboards.py --check   # CI / pytest 用：JSON 與�
 - **每個應用一個固定顏色**，所有面板一致：`support-rag` 藍 `#338ced`、`onboarding-agent` 橙 `#e76624`（已對 Grafana 深色底 `#181b1f` 驗證色盲辨識度與對比）；顏色跟著應用走，不因篩選或排名改變。
 - **狀態色保留給狀態**：429 黃、401/403 橘、5xx 紅、健康綠，從不用在應用序列上。
 - 每個面板只有一個 y 軸；圖例一律顯示應用名稱，不只靠顏色辨識。
-- `App` 變數自動排除測試用臨時 key（`pytest-tmp-*`）與 master key 流量（`None`）。
+- `App` 變數自動排除測試用臨時 key（`pytest-tmp-*`）、壓測臨時 key（`loadtest-*`）與 master key 流量（`None`）。
 - Grafana 預設深色主題（配色以深色底驗證）。
 - Ollama 本身不提供 Prometheus 指標；推論端指標待換 vLLM 後補齊。
 
@@ -168,9 +168,33 @@ uv run pytest tests/platform -m "not llm"   # 跳過會呼叫模型的測試
 - 限流測試使用臨時 key（`pytest-tmp-` 前綴，極小限額），測完刪除；應用的正式 key 只讀不改。
 - 測試一律以 Python 撰寫，避免 shell 引號差異。
 
-### 壓測與 RAG 評測
+### 壓測
 
-TODO：壓測（TTFT / tokens/s / p95 / 並發）、RAG 評測集。
+```bash
+python loadtest/bench.py --restart-backend      # 並發 1,2,4,8,16；結果寫入 loadtest/results/<時間>/（不進版控）
+python loadtest/bench.py -c 1,4 -n 8 --max-tokens 64   # 快速版
+python loadtest/bench.py --key-env SUPPORT_RAG_LLM_KEY # 經過應用的限額（示範 429）
+```
+
+- 全部請求以串流經過 Gateway，從客戶端量 TTFT、總延遲、每請求生成速度（decode tok/s）與整體吞吐；p50／p95 只算成功請求，429 與其他錯誤分開計數。
+- 預設建立臨時 key（`loadtest-*`，無限額，跑完刪除），量的是平台容量而非應用配額。
+- `--restart-backend` 每個並發等級前重啟 Ollama 並暖機：實測 Ollama 0.40.18 在超量並發後，c=2 吞吐會掉一半直到重啟，不重啟時各等級不可比。
+
+**基準結果**（RTX 4070 Ti、qwen2.5:7b-instruct、`OLLAMA_NUM_PARALLEL=4`、max_tokens 256；完整報告與方法說明見 [`docs/benchmarks/2026-11-26-baseline.md`](docs/benchmarks/2026-11-26-baseline.md)）：
+
+| 並發 | TTFT p50 | TTFT p95 | 延遲 p95 | 每請求 tok/s | 總吞吐 tok/s |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 0.047 s | 0.056 s | 3.04 s | 86.2 | 85.3 |
+| 2 | 0.068 s | 0.086 s | 3.23 s | 81.8 | 161.0 |
+| 4 | 0.119 s | 0.132 s | 3.61 s | 74.5 | 288.6 |
+| 8 | 3.742 s | 3.823 s | 7.47 s | 71.0 | 280.4 |
+| 16 | 10.699 s | 10.769 s | 14.25 s | 73.3 | 288.4 |
+
+吞吐在並發 4（= Ollama 平行槽數）飽和；再往上只增加排隊時間（TTFT 線性上升），因此應用 key 的並發上限合計設為 4，超量時由 Gateway 立即回 429。
+
+### RAG 評測
+
+TODO（Phase 2）
 
 ## 切換到 vLLM
 
