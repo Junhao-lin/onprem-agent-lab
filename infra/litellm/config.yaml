@@ -33,9 +33,22 @@ litellm_settings:
   request_timeout: 120
   drop_params: true
   telemetry: false
+  # Redis cache is required so per-key rpm/tpm/parallel counters live in
+  # Redis (shared across workers/replicas) instead of per-process memory.
+  # (LiteLLM 1.83: the limiter only gets Redis via litellm.cache.)
+  # mode=default_off keeps LLM *response* caching opt-in per request
+  # (cache: {"use-cache": true}), so load tests and answers are never
+  # silently served from cache.
+  cache: true
+  cache_params:
+    type: redis
+    host: os.environ/REDIS_HOST
+    port: os.environ/REDIS_PORT
+    password: os.environ/REDIS_PASSWORD
+    mode: default_off
 
 router_settings:
-  # Shared state for rpm/tpm/parallel limits across proxy workers/replicas
+  # Router-level (per-deployment) usage tracking, also shared via Redis
   redis_host: os.environ/REDIS_HOST
   redis_port: os.environ/REDIS_PORT
   redis_password: os.environ/REDIS_PASSWORD
