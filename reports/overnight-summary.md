@@ -43,7 +43,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 | A. 1.9 補驗證（Playwright） | 完成 | 有條件通過，剩 1 項低嚴重度問題（修正已達 3 輪上限） | `ecdf601` `30cee1f` `ee96c5d` `5cfc7ad` `3fceecd` `ff82b8f` `b9c024d` |
 | B. 1.10 補驗證 + 維運風險段落 | 完成 | **通過**（第 2 輪） | `1397bfc` `2fa201e` `138fbce` `d3c3da0` |
 | C. LiteLLM issue 草稿 | 完成 | **通過**（第 3 輪） | `e2c7307` `d113a62` `0e5830d` `4feff3a` `9162188` `32aaf5c` |
-| D. 正式流量 + 截圖 | 未開始 | | |
+| D. 正式流量 + 截圖 | 完成 | 有條件通過（第 3 輪；唯一的建議已修正） | `c77b4d5` `b378994` `c8167a4` `a9da907` `65dba36` |
 | E. 1.11 README | 未開始 | | |
 
 ### A. 1.9 補驗證
@@ -119,6 +119,23 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
   - 第 2 輪：不通過。標為 observed 的 metrics 主張沒有證據。已補上證據並修正。
   - 第 3 輪：**通過**。
 
+### D. 正式 key 流量與截圖
+
+- **新增 `loadtest/app_traffic.py`**：
+  - 使用兩把正式 key，速率控制在各自 rpm 上限的 50%，每個應用同一時間只有 1 個請求；
+  - 混合串流 chat、非串流 chat 與 embeddings。
+- **跑 5 分鐘的結果**：support-rag 75 回合、onboarding-agent 75 回合，全部回 200，TTFT p50 約 0.05 s。
+- **新增 `scripts/screenshot_dashboard.py`**：用 Playwright 以 kiosk 模式截圖；只要有任何面板沒有資料，就不會存檔。
+- **截圖 `docs/images/dashboard.png`**：16 個面板都有資料，包括 TTFT。我親自看過截圖。
+- **截圖資料來源**（細節見 `reports/raw/D/screenshot.txt`）：
+  - Qdrant 面板的資料來自 pytest，不是 app_traffic，因為 RAG 應用還沒做；
+  - 時間軸是 UTC+8。
+- **Codex**：
+  - 第 1 輪：有條件通過。截圖時區與資料來源沒有說明，已補上。另外加了 `--fraction` 範圍檢查，也加了實際量測「同一時間在途請求數」的測試。
+  - 第 2 輪：不通過。我把 Qdrant 資料歸到錯的那次 pytest 執行。已改用 Prometheus 的時間點，加上該次執行的遮蔽版輸出，證明正確的來源。
+  - 第 3 輪：有條件通過。只剩行號引用有誤，已修正。
+- **完整套件**：157 passed, 1 xfailed。
+
 ## 卡住的問題
 
 1. **LiteLLM 的 spend log 寫入問題，原因不明**（`reports/raw/incidents/spendlog-stall.txt`）：
@@ -155,7 +172,8 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 2. **Qdrant p95 REST latency 的點很稀疏**，幾乎看不到。要不要在儀表板開啟 `showPoints`？
 3. **Ollama 超載後退化的緩解方式**：見 `docs/benchmarks/2026-11-26-baseline.md` 的〈Operational risk〉。選項有：維持 Gateway 並發上限總和不超過槽位數（目前已是如此）、加偵測告警、排程重啟、換 vLLM 後重測。
 4. **LiteLLM spend log 漏記**（見〈卡住的問題〉1）：要不要調高 log level 追查，或改成以 Prometheus 指標作為用量的主要來源？
-5. **Failed 面板會出現 `None` 序列**（LiteLLM 把格式錯誤的 400 記成 `None`）。要不要在面板中把 `None` 重新命名，例如改成「other / unknown」？
+5. **讓 `app_traffic.py` 也呼叫 Qdrant**：這樣截圖中的 Qdrant 面板就會反映應用流量。比較適合等 Phase 2 的 RAG 應用完成後再做。
+6. **Failed 面板會出現 `None` 序列**（LiteLLM 把格式錯誤的 400 記成 `None`）。要不要在面板中把 `None` 重新命名，例如改成「other / unknown」？
 
 ## 明天早上該怎麼檢查
 
