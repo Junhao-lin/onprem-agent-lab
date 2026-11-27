@@ -401,3 +401,51 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
   - 比較測試改為檢查 README 與報告都含有上面這句結論，而且都不再出現「結果一致」或 "results are consistent"。
   - 反向驗證：改錯 README 的下降區間，或改錯表格的一格時，對應的測試都會失敗。
 - **完整 pytest：176 passed, 1 xfailed**（`reports/raw/degradation-ollama-chat/pytest.txt`）。
+
+### 8. Codex 完整驗證「不通過」的處理
+Codex 確認的部分：歷史中沒有密碼與完整 key、LiteLLM log 乾淨、spend log 正確、壓測數字與 CSV 相符。以下 5 項是它判定不通過的原因：
+
+1. **1.9 截圖被測試覆寫**（commit `cee002a`）
+   - 已用 `git restore` 還原成 commit 的版本。
+   - e2e 測試的截圖改存到 git 忽略的 `reports/raw/1.9/latest/`，版控只保留驗證當時的那張。
+   - 我親自看過版控中那張圖，數值與 1.9 報告附錄 A 一致：Requests 156、Error rate 16.8%、p95 latency 8.89 s、p95 TTFT 479.00 ms、In-flight 0、Collections 1、Vectors 3。附錄 A 已補註此事。
+   - 新增測試 `test_e2e_screenshot_goes_to_ignored_path`。
+   - 跑完 e2e 後，`git status` 沒有出現這張圖。
+2. **測試數量差異**
+   - Codex 跑的是 `pytest tests/platform`，結果 154 passed + 1 xfailed，共 155 個。我先前回報的 176 passed 是完整套件，多了 `tests/e2e` 的 22 個 Playwright 測試：154 + 22 = 176。
+   - 兩邊都沒有錯，只是路徑不同。
+   - README 的〈測試〉加了各路徑的測試數量與指令，並由 `test_readme_test_counts_match_collection` 與 `pytest --collect-only` 比對。
+   - 本次新增 8 個測試後，`tests/platform` 是 163 個，`tests/e2e` 是 22 個，合計 185 個。
+3. **`docs/images/dashboard.png` 混入測試流量**（commit `2818f89`）
+   - 舊圖的 10 分鐘範圍左側，包含一次完整 pytest 的尾段：p95 latency 9.50 s、TTFT 488 ms。Qdrant 的資料也來自測試。
+   - 重拍的做法：
+     - 先跑 10 分鐘 `app_traffic.py`，只用兩把正式 key，150 + 150 輪全部回 200；
+     - 期間不跑任何會連線 gateway 的測試；
+     - 截取完全落在流量期間的 7 分鐘：2026-11-27 15:23:32–15:30:32（UTC+8）。
+   - 新增 `scripts/dashboard_window_traffic.py`，用 Prometheus 查同一時間窗。結果只有 `onboarding-agent` 約 105 筆、`support-rag` 約 210 筆，沒有失敗，也沒有 Qdrant 呼叫。
+   - 新圖：Requests 315、Error rate 0.0%、p95 latency 3.83 s、p95 TTFT 48.73 ms。
+   - Qdrant 面板沒有資料，因為還沒有應用呼叫 Qdrant。為此 `screenshot_dashboard.py` 加了 `--allow-idle-qdrant`，只豁免 Qdrant 面板，並會列出被豁免的面板。
+   - README 圖說寫明時間範圍與流量來源。證據在 `reports/raw/dashboard/`。
+4. **`git diff --check main..overnight`**（commit `6396033`）
+   - 去掉 25 個檔案的行尾空白與檔尾空行，都是原始 log 與報告，只動空白。
+   - D.md 與 Codex D 摘要中的 Markdown 強制換行，從兩個空格改成行尾 `\`，渲染結果相同。
+   - `D/pytest-C-run-0026-redacted.txt` 被判為「衝突標記」是誤報：那行是 pytest 的摘要行 `======= 2 failed ...`。處理方式是在 `.gitattributes` 對 `reports/raw/**` 設定 `conflict-marker-size=32`，不改原始輸出。
+   - `rawlog.write_raw` 今後會自動去除行尾空白。
+   - 新增 `test_tracked_text_files_pass_git_diff_check`，檢查所有追蹤中的文字檔。
+   - 現在 `git diff --check main..overnight` 沒有任何輸出。
+5. **benchmark Markdown 與 raw CSV 自動比對**：已有，並補齊。測試都在 `tests/platform/test_readme.py`：
+   - 已有：
+     - `test_benchmark_table_matches_raw_baseline`：README 基準表 vs 目前那次壓測的 `summary.csv`；
+     - `test_provider_comparison_matches_both_raw_runs`：新舊比較表與 Δ vs 兩份 `summary.csv`；
+     - `test_ops_risk_numbers_match_degradation_data[...]`：README 維運風險的區間 vs 兩份退化資料；
+     - `test_degradation_comparison_matches_both_raw_runs`：退化並列表 vs 兩份退化資料。
+   - 本次新增：
+     - `test_benchmark_report_results_match_raw_summary[2026-11-26-baseline.md / 2026-11-27-ollama-chat.md]`：兩份報告的 Results 表逐列等於原始 `summary.md`；
+     - `test_baseline_degradation_and_back_to_back_tables_match_raw`：舊報告的退化表與 back-to-back 表 vs CSV。
+   - 反向驗證：在這三張表各改錯一格，對應的測試都會失敗。
+- **測試結果**（分路徑執行）：
+  - `tests/platform`：**162 passed, 1 xfailed**（`reports/raw/codex-fix-platform/pytest.txt`）。
+  - `tests/e2e`：**22 passed**（`reports/raw/codex-fix-e2e/pytest.txt`）。
+  - 合計 184 passed, 1 xfailed。
+- 跑完測試後 `git status` 乾淨：e2e 截圖只寫進被忽略的 `latest/`。
+
