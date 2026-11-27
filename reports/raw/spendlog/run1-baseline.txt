@@ -1,0 +1,11 @@
+run 2026-11-27 11:40:06 temp key alias pytest-tmp-spendlog-1795750806; N=5 per group
+sent nonstream: statuses [200], 5 ok
+sent stream   : statuses [200], 5 ok
+sent embed    : statuses [200], 5 ok
++    0s rows: [['spend-embed', 'aembedding', '4']]
++    5s rows: [['spend-embed', 'aembedding', '5']]
+by x-litellm-call-id nonstream: 0/5 rows
+by x-litellm-call-id stream   : 0/5 rows
+by x-litellm-call-id embed    : 5/5 rows
+row shape (end_user, call_type, status, has_completion_tokens, request_id prefix): [['spend-embed', 'aembedding', 'success', 'f', '44e9d434-'], ['spend-embed', 'aembedding', 'success', 'f', '1f4d9216-'], ['spend-embed', 'aembedding', 'success', 'f', '2007c3fd-'], ['spend-embed', 'aembedding', 'success', 'f', '2d6b90cd-'], ['spend-embed', 'aembedding', 'success', 'f', 'fff221a1-']]
+cleanup: pytest-tmp-spendlog-1795750806 deleted = True

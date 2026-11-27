@@ -353,7 +353,7 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
   - 計數的 TTL 為 60 秒，每次更新都會重設。
   - 目前以 `xfail(strict=True)` 測試追蹤，上游修正後測試會提醒；沒有加防護。總並發仍受 Ollama 的 `OLLAMA_NUM_PARALLEL` 硬上限保護。
   - 重現腳本與 issue 草稿（尚未送出）在 [`docs/upstream/litellm-parallel-counter.md`](docs/upstream/litellm-parallel-counter.md)。
-- **spend log 不完整**：實測 LiteLLM 的 `LiteLLM_SpendLogs` 大量漏記 chat completion（embedding 大致完整），也曾有約 10 分鐘完全沒有寫入。Prometheus 指標中這些請求都有計入。調查紀錄在 [`reports/raw/incidents/spendlog-stall.txt`](reports/raw/incidents/spendlog-stall.txt)。
+- **spend log 漏記 chat completion（原因已確認）**：Ollama 的 OpenAI 相容 API 回傳的 id 只有 `chatcmpl-<0–999>`，LiteLLM 拿它當 `LiteLLM_SpendLogs` 的主鍵，並以 `skip_duplicates` 寫入，所以 id 重複的 chat 紀錄會被靜默丟掉，表越滿漏得越多（串流與非串流都一樣；embedding 用 UUID，不受影響）。Prometheus 指標與儀表板不受影響。調查與重現在 [`reports/raw/spendlog/FINDINGS.md`](reports/raw/spendlog/FINDINGS.md)；昨晚另觀察到約 10 分鐘完全沒有寫入，見 [`reports/raw/incidents/spendlog-stall.txt`](reports/raw/incidents/spendlog-stall.txt)。
 
 **推論與監控**
 

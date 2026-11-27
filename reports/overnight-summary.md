@@ -299,3 +299,29 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
     - 掃描 `reports/` 底下所有檔案（含未追蹤的）：沒有任何 `.env` 密鑰值，也沒有未遮罩的 `sk-` token（測試原始碼自己定義的假 key 除外）。
   - README〈安全性〉與測試表已更新。
 
+### 4. spend log 限時調查（30 分鐘，實際約 10 分鐘，03:39–03:49 UTC）
+- **假設「串流請求沒有寫入 spend log」不成立**：串流與非串流的 chat 都會漏記，條件相同。
+- **原因已找到並驗證：request_id 碰撞。**
+  - Ollama 的 OpenAI 相容 API 回傳的 id 是 `chatcmpl-<數字>`，DB 中 880 筆 chat 紀錄的數字落在 0–997，全部不同。
+  - LiteLLM 拿 provider 的 id 當 `LiteLLM_SpendLogs` 的主鍵（`get_spend_logs_id()`），並用 `create_many(skip_duplicates=True)` 寫入，所以 id 重複的紀錄會被**靜默丟掉**。
+  - id 空間已用掉約 88%，所以新的 chat 大約只有 12% 會被記錄。embedding 沒有 provider id，改用 UUID，所以不受影響。
+- **驗證**（臨時 key，結束後刪除並確認）：20 筆 chat 中，id 原本沒被用過的 5 筆 → **5/5 有紀錄**；id 已存在的 15 筆 → **0/15**；embedding 10/10。預測與結果完全一致。
+- 沒有調高 log level（不需要），沒有改設定，也沒有刪除 DB 資料。
+- 昨晚「約 10 分鐘完全沒有寫入」沒有重現，可能同因，**未驗證**。
+- 證據：`reports/raw/spendlog/`（`FINDINGS.md`、`spendlog_probe.py`、`run1-baseline.txt`、`run2-collision.txt`，輸出經 `scripts/rawlog.py` 寫檔）。README 的已知限制已改寫成確認後的原因。
+- **需要你決定**：
+  1. 要不要把 LiteLLM 的 provider 改成 `ollama_chat/`（預期會改用 UUID，**尚未驗證**，是設定變更）；或等第二階段換 vLLM（id 為 UUID）。
+  2. 要不要寫成 LiteLLM 的 issue 草稿。
+  3. 要不要把 `test_spend_log_increments`（目前只檢查總筆數增加，是弱斷言，抓不到這個問題）改成「這一筆請求自己的紀錄存在」。在目前環境它會失敗，或者標成 `xfail(strict)`。
+
+### 早上處理的總結
+- 完整測試：**172 passed, 1 xfailed**（`reports/raw/morning/pytest.txt`）。
+- `main` 仍是 `e25cac1`，沒有合併、沒有 push。
+- `.env` 只改了 4 個值：`POSTGRES_PASSWORD`、`REDIS_PASSWORD`、兩把應用 key，其餘不變。全程沒有印出任何值。
+- 沒有使用 `down -v`，沒有刪除任何 volume。
+- 改動前的 `.env` 備份（只在 scratchpad，不在 repo）已刪除，裡面都是已作廢的值。
+- 早上檢查方式：
+  - `git log --oneline main..overnight`
+  - `python -m uv run pytest`：預期 172 passed, 1 xfailed。剛重建 litellm 後的 15 分鐘內，dashboard 與 e2e 測試會誤判。
+  - `docker compose logs litellm | findstr sk-`：預期沒有輸出。
+
