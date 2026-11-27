@@ -80,7 +80,7 @@ does exactly these steps against this repo's Docker Compose stack:
 - it prints masked keys only;
 - it reads the counter only after two consecutive reads agree, because failure callbacks run asynchronously.
 
-### Observed output (2026-11-27, raw file `reports/raw/C/repro-output.txt`)
+### Observed output (2026-11-27, raw file `reports/evidence/C/repro-output.txt`)
 
 ```
 run 2026-11-27 00:11:50 against http://127.0.0.1:4000
@@ -116,7 +116,7 @@ cleanup: pytest-tmp-repro-b-1795709519172 deleted (confirmed via /key/list)
 ## Possible cause: hypothesis from reading the 1.83.14 source, not verified with a debugger
 
 Paths are under `site-packages/litellm/`. Line numbers refer to the 1.83.14 image. The quoted
-lines are saved verbatim in `reports/raw/C/litellm-source-excerpts.txt`.
+lines are saved verbatim in `reports/evidence/C/litellm-source-excerpts.txt`.
 
 What the source shows:
 

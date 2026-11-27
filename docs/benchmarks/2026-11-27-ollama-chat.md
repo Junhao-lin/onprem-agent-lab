@@ -3,13 +3,13 @@
 Same sweep as the [2026-11-26 baseline](2026-11-26-baseline.md), re-run after `chat-default` was
 switched from LiteLLM's `openai/` provider (Ollama's OpenAI-compatible `/v1`) to `ollama_chat/`
 (Ollama's native `/api/chat`). The switch fixed the spend-log gaps
-(`reports/raw/spendlog/FINDINGS.md`). Only the gateway-to-Ollama path changed. Ollama, the model,
+(`reports/evidence/spendlog/FINDINGS.md`). Only the gateway-to-Ollama path changed. Ollama, the model,
 the GPU, `OLLAMA_NUM_PARALLEL` and the load script are the same.
 
 - Command: `python loadtest/bench.py --restart-backend`, with a temporary key (`loadtest-*`, no limits)
   that was deleted afterwards. The script checks the deletion and would exit with code 3 if it failed.
   It exited with 0.
-- Raw files: `reports/raw/1.10/ollama-chat-restart/`. The old run is in `reports/raw/1.10/baseline-restart/`.
+- Raw files: `reports/evidence/1.10/ollama-chat-restart/`. The old run is in `reports/evidence/1.10/baseline-restart/`.
 
 ## Environment
 
@@ -89,8 +89,8 @@ verified (only one run per setting). TTFT changes below saturation are milliseco
 
 `python -I loadtest/repro_degradation.py` re-run with the new provider: 2 cycles, each step a
 separate `bench.py` run with its own temporary key, all deleted (no cleanup errors in the step
-logs). Raw files: `reports/raw/1.10/degradation-ollama-chat/`. The old run is in
-`reports/raw/1.10/degradation/` (2026-11-26, `/v1`).
+logs). Raw files: `reports/evidence/1.10/degradation-ollama-chat/`. The old run is in
+`reports/evidence/1.10/degradation/` (2026-11-26, `/v1`).
 
 | Cycle | Step | c | Decode tok/s per req, old (`/v1`) | new (`ollama_chat`) | Throughput tok/s, old (`/v1`) | new (`ollama_chat`) |
 |---:|---|---:|---:|---:|---:|---:|

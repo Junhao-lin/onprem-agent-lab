@@ -6,10 +6,10 @@
   - `docs/upstream/litellm-parallel-counter.md`：issue 草稿，**未送出**
   - `docs/upstream/repro_parallel_counter.py`
 - **依決定維持現狀**：xfail(strict) 測試與 README 記錄都保留，沒有加入任何防護。
-- **證據**：`reports/raw/C/`，內含：
+- **證據**：`reports/evidence/C/`，內含：
   - `repro-output.txt`：重現腳本的實際輸出
   - `pytest.txt`：完整套件
-  - `codex-*`：prompt、回覆與 log
+  - `codex-*`：prompt 與回覆（log 已移除：Agent 原始對話紀錄含本機使用者資訊，不進版控）
 
 ## 第 1 輪（commit `e2c7307`）
 
@@ -28,7 +28,7 @@
 3. **可能原因標為推測、原始碼位置合理：有條件通過。** 標題及 Hypothesis 區塊清楚表明尚未 debugger 驗證；所列 limiter 與 managed-files hook 路徑看來相關。但「always decrements」及各錯誤所處 hook 順序尚未由附帶輸出證明，建議降低確定語氣並加上對應原始碼行號。
 4. **維持現狀：通過。** `test_auth_rejection_does_not_skew_parallel_counter` 仍為 `xfail(strict=True)`；README 仍記錄限制。`pytest.txt` 記錄該 xfail、152 passed，exit code 0；未見此 commit 修改測試或 README，也未見防護或 gateway 行為變更。
 5. **遮罩 key 與清理：有條件通過。** 腳本和輸出只顯示 key 末四碼，沒有完整 key。腳本以 `finally` 嘗試刪 key，但不驗證刪除成功；建立 key 後、進入 `try` 前若發生例外，也不會執行清理。
-6. **完整套件通過：通過。** `reports/raw/C/pytest.txt` 記錄 153 項收集、152 passed、1 xfailed，exit code 0。
+6. **完整套件通過：通過。** `reports/evidence/C/pytest.txt` 記錄 153 項收集、152 passed、1 xfailed，exit code 0。
 
 ## 問題清單
 
@@ -54,7 +54,7 @@
 | 建議：清理不完整、alias 固定 | 新增 `TempKey`：<br>• 每個情境的 alias 都不同（含毫秒時間戳）<br>• 建立 key 失敗也會清理<br>• 刪除後以 `/key/list` 確認，失敗時警告，但不拋出例外 |
 | 建議：推論與觀測混在一起、缺原始碼行號 | 〈Impact〉拆成「observed」與「inferred, not measured」兩部分；〈Possible cause〉先列原始碼事實並附行號（limiter v3 第 1277、1593–1604、1761、1783–1796 行；`auth_checks.py:2786`；`managed_files.py:632`；`utils.py:1433`），再列假設 |
 
-重新執行腳本，結果在 `reports/raw/C/repro-output.txt`：LiteLLM 1.83.14，A、B 兩個情境都重現。
+重新執行腳本，結果在 `reports/evidence/C/repro-output.txt`：LiteLLM 1.83.14，A、B 兩個情境都重現。
 
 修正後的完整套件：152 passed, 1 xfailed。
 
@@ -90,19 +90,19 @@
 | Codex 意見 | 處理 |
 |---|---|
 | 必修：「標記為 observed 的主張」（metrics、部署限制）在 repro-output.txt 中找不到 | 腳本在每個情境結束時，從 gateway 的 `/metrics/` 讀出該臨時 key 的 `litellm_proxy_failed_requests_metric_total`：<br>• A 情境（401）：**沒有任何序列**<br>• B 情境（400）：`exception_status="None"`、`AttributeError` = 2.0；429 = 1.0<br>草稿中的部署限制段落改標為「Deployment context (from this repo's configuration, not measured here)」，並指向 `docker-compose.yml` 與 `virtual-keys.toml`。「計數值本身沒有被匯出」限定為「只檢查了 `/metrics/`」 |
-| 原始碼描述沒有證據 | 引用的 LiteLLM 原始碼行逐字存到 `reports/raw/C/litellm-source-excerpts.txt`，草稿也標明了出處 |
+| 原始碼描述沒有證據 | 引用的 LiteLLM 原始碼行逐字存到 `reports/evidence/C/litellm-source-excerpts.txt`，草稿也標明了出處 |
 | 建議：輸出沒有記錄刪除確認的結果 | 每個情境結束時印出 `cleanup: <alias> deleted (confirmed via /key/list)` |
 
-重跑腳本後的新輸出在 `reports/raw/C/repro-output.txt`。A、B 兩個情境都重現，兩把臨時 key 都已確認刪除。
+重跑腳本後的新輸出在 `reports/evidence/C/repro-output.txt`。A、B 兩個情境都重現，兩把臨時 key 都已確認刪除。
 
 ### 完整套件：與本項無關的失敗
 
-修正第 2 輪後的完整套件（`reports/raw/C/pytest.txt`）**沒有全數通過**：
+修正第 2 輪後的完整套件（`reports/evidence/C/pytest.txt`）**沒有全數通過**：
 
 1. **`test_spend_log_increments` 失敗。** LiteLLM 自 16:18:05 UTC 起不再寫入 `LiteLLM_SpendLogs`，原因不明。
    - 重啟 litellm 服務之後仍未恢復。
    - Postgres 仍可寫入。
-   - 證據與已排除的原因記錄在 `reports/raw/incidents/spendlog-stall.txt`。
+   - 證據與已排除的原因記錄在 `reports/evidence/incidents/spendlog-stall.txt`。
    - 項目 C 只改了 `docs/upstream/` 與 `reports/`，沒有改 gateway 設定或行為。
    - 這件事已列為**卡住、需要使用者決定**的事項。
 2. **e2e 與 dashboard 相關測試共 22 個 error、1 個 failure。** 這是上面重啟 LiteLLM 的副作用：
@@ -113,7 +113,7 @@
 ### 後續：重跑結果與安全事件
 
 - **舊序列離開 15 分鐘時間窗後重跑完整套件**：1 failed（`test_no_secret_values_in_tracked_files`）、151 passed。e2e 與 dashboard 測試全部恢復，`test_spend_log_increments` 也再次通過（spend log 已自行恢復寫入，細節見 incident 檔）。
-- **安全事件**：失敗的那一項正確抓到 `0e5830d` 中的 `reports/raw/C/pytest.txt` 含有 `POSTGRES_PASSWORD` 與 `REDIS_PASSWORD` 的明文。
+- **安全事件**：失敗的那一項正確抓到 `0e5830d` 中的 `reports/evidence/C/pytest.txt` 含有 `POSTGRES_PASSWORD` 與 `REDIS_PASSWORD` 的明文。
   - 原因：前一次執行有 22 個 error，pytest 的長 traceback 把 `env` fixture 整個 dict 印出來了。
   - 掃描全部 55 個 commit 的所有 blob，受影響的只有這一個。
   - 依夜間規則**沒有改寫歷史**。`4feff3a` 已替換這個檔案，並從兩處防止再發生：
@@ -122,7 +122,7 @@
 
     兩處都有測試，也做過突變檢查。
   - 是否輪換這兩組密碼、是否在 push 前清理分支歷史，留給使用者決定。
-- **最終完整套件**：154 passed, 1 xfailed（`reports/raw/C/pytest.txt`；wrapper 只遮蔽了一處，是測試 id 中的假 key）。
+- **最終完整套件**：154 passed, 1 xfailed（`reports/evidence/C/pytest.txt`；wrapper 只遮蔽了一處，是測試 id 中的假 key）。
 
 
 ## 第 3 輪（commit `0e5830d`、`4feff3a`、`9162188`）

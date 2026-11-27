@@ -75,8 +75,8 @@ def test_no_real_key_material(env):
     assert leaked == [], leaked
 
 
-BENCH_OLD = REPO / "reports/raw/1.10/baseline-restart"      # openai/ via Ollama /v1
-BENCH_CURRENT = REPO / "reports/raw/1.10/ollama-chat-restart"  # ollama_chat/ via /api/chat
+BENCH_OLD = REPO / "reports/evidence/1.10/baseline-restart"      # openai/ via Ollama /v1
+BENCH_CURRENT = REPO / "reports/evidence/1.10/ollama-chat-restart"  # ollama_chat/ via /api/chat
 BENCH_COMPARE_DOC = REPO / "docs/benchmarks/2026-11-27-ollama-chat.md"
 # Agreed wording of the provider before/after conclusion (README and report).
 CONCLUSION = "差異在 10% 以內、飽和點仍為並發 4；但新設定每一級吞吐皆略低 1–6.5%，方向一致，推測為 LiteLLM 轉換 Ollama 原生串流格式的開銷，尚未驗證（每種設定各只跑一輪）"
@@ -129,8 +129,8 @@ def test_provider_comparison_matches_both_raw_runs():
 
 
 DEGRADATION_RUNS = {  # README label -> raw run dir
-    "`/v1`（舊）": REPO / "reports/raw/1.10/degradation",
-    "`ollama_chat/`（目前）": REPO / "reports/raw/1.10/degradation-ollama-chat",
+    "`/v1`（舊）": REPO / "reports/evidence/1.10/degradation",
+    "`ollama_chat/`（目前）": REPO / "reports/evidence/1.10/degradation-ollama-chat",
 }
 
 
@@ -218,7 +218,7 @@ def test_baseline_degradation_and_back_to_back_tables_match_raw():
             f"{float(r['ttft_p95_s']):.3f}", f"{float(r['latency_p50_s']):.2f}",
             f"{float(r['decode_tps_p50']):.1f}", f"{float(r['throughput_tps']):.1f}"], (cy, r["step"])
 
-    b2b = _bench_summary(REPO / "reports/raw/1.10/back-to-back-sweep")
+    b2b = _bench_summary(REPO / "reports/evidence/1.10/back-to-back-sweep")
     thr = re.search(r"^\| Throughput tok/s, back-to-back sweep \|(.+)\|$", doc, re.M).group(1)
     ttft = re.search(r"^\| TTFT p95, back-to-back sweep \|(.+)\|$", doc, re.M).group(1)
     assert [x.strip() for x in thr.split("|")] == [f"{float(b2b[c]['throughput_tps']):.1f}" for c in sorted(b2b)]

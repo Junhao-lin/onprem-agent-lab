@@ -94,7 +94,7 @@ def test_every_chat_has_its_own_spend_log_row(env, gateway, tmp_key):
     silently dropped: with Ollama's OpenAI-compatible /v1, response ids are only
     "chatcmpl-<0..999>", LiteLLM uses the id as the spend-log primary key and inserts
     with skip_duplicates. Fixed by the ollama_chat provider (UUID ids); see
-    reports/raw/spendlog/FINDINGS.md. A disposable key makes the rows attributable."""
+    reports/evidence/spendlog/FINDINGS.md. A disposable key makes the rows attributable."""
     key = tmp_key("spendlog")
     hashed = hashlib.sha256(key.encode()).hexdigest()
     ids = [_chat_response_id(gateway, key, stream, i) for i in range(3) for stream in (False, True)]

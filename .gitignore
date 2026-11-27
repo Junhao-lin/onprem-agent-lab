@@ -29,8 +29,11 @@ models/
 *.safetensors
 
 # --- Load test & eval outputs ---
-# screenshots re-taken by every e2e run (the reviewed one is committed one level up)
-reports/raw/1.9/latest/
+# Local raw output (pytest runs, agent transcripts, e2e screenshots). Evidence that the
+# reports cite is masked and copied to reports/evidence/ instead.
+reports/raw/
+# Local-only lists (e.g. forbidden words for test_repo_hygiene) - never committed
+.local/
 loadtest/results/*
 !loadtest/results/.gitkeep
 eval/**/results/

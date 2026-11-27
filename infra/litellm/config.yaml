@@ -10,7 +10,7 @@ model_list:
       # OpenAI-compatible /v1 endpoint: /v1 returns ids "chatcmpl-<0..999>", and
       # LiteLLM uses the response id as the spend-log primary key (inserted with
       # skip_duplicates), so most chats were silently not logged. ollama_chat
-      # makes LiteLLM generate a UUID id. See reports/raw/spendlog/FINDINGS.md.
+      # makes LiteLLM generate a UUID id. See reports/evidence/spendlog/FINDINGS.md.
       # (vLLM: switch back to openai/... - its ids are UUIDs.)
       # Keep in sync with OLLAMA_CHAT_MODEL in .env
       model: ollama_chat/qwen2.5:7b-instruct

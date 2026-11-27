@@ -12,4 +12,4 @@ Dockerfile text eol=lf
 
 # Raw tool output (pytest summary lines start with "======= "): do not flag them as
 # merge-conflict markers in git diff --check.
-reports/raw/** conflict-marker-size=32
+reports/evidence/** conflict-marker-size=32

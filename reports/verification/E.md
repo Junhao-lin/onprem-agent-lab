@@ -3,7 +3,7 @@
 > 夜間模式：Codex 唯讀審閱證據，未親自執行。
 
 - **範圍**：`README.md` 全面改寫，以及新增的 `tests/platform/test_readme.py`。
-- **證據**：`reports/raw/E/`，包含 `pytest.txt` 與 Codex 的 prompt、回覆和 log。
+- **證據**：`reports/evidence/E/`，包含 `pytest.txt` 與 Codex 的 prompt 和回覆（log 已移除：Agent 原始對話紀錄含本機使用者資訊，不進版控）。
 - **Quick Start 在運行中的平台上實測過的部分**：
   - `docker compose ... config -q`；
   - `python scripts/bootstrap_keys.py`；
@@ -17,7 +17,7 @@
 
 ## 總結：有條件通過
 
-README 的架構、服務埠、key 限額、基準數字與已知限制大致符合 repo 證據；`reports/raw/E/pytest.txt` 記錄完整套件 **162 passed、1 xfailed，5:02**。截圖本身與圖說大致相符。
+README 的架構、服務埠、key 限額、基準數字與已知限制大致符合 repo 證據；`reports/evidence/E/pytest.txt` 記錄完整套件 **162 passed、1 xfailed，5:02**。截圖本身與圖說大致相符。
 
 Quick Start 的 Windows 驗證步驟無法照抄執行，且 README 含有遮罩 key 範例，不符合「不含任何 key 值」的驗收要求。修正這兩點後較適合通過。
 
@@ -70,9 +70,9 @@ Quick Start 的 Windows 驗證步驟無法照抄執行，且 README 含有遮罩
 ## 逐條驗收
 
 1. **通過**：`dc472d5` 加入 PowerShell `.env` 載入與 `Invoke-RestMethod` 範例；README 的遮罩示例使用虛構尾碼，未見真實 key 尾碼。
-2. **通過**：README 包含 Quick Start（含 `python -m uv`）、架構、測試方式、第一版壓測、已知限制及截圖。compose、基準資料、`reports/raw/1.10/` 與截圖內容相符。PowerShell 範例符合 `.env.example` 的格式；我未親自執行驗證。
+2. **通過**：README 包含 Quick Start（含 `python -m uv`）、架構、測試方式、第一版壓測、已知限制及截圖。compose、基準資料、`reports/evidence/1.10/` 與截圖內容相符。PowerShell 範例符合 `.env.example` 的格式；我未親自執行驗證。
 3. **未通過**：檔名與 profile 有存在性檢查，基準數字也有對照原始資料；但 marker 斷言僅要求 README 中的 marker 存在於 `pyproject.toml`。若把 `not llm` 改成其他已宣告 marker，檢查仍可能通過。
-4. **通過**：`reports/raw/E/pytest.txt` 記錄 **165 passed、1 xfailed**。
+4. **通過**：`reports/evidence/E/pytest.txt` 記錄 **165 passed、1 xfailed**。
 
 ## 剩餘問題
 
@@ -101,7 +101,7 @@ Quick Start 的 Windows 驗證步驟無法照抄執行，且 README 含有遮罩
 
 1. **Marker 回歸檢查：通過。** `test_readme.py` 現在要求 README 的 `-m "not …"` 使用 `llm`，並核對其說明、`pyproject.toml` 中 `llm` 的定義及 Grafana e2e 的標記。因此改成已宣告的 `browser` 會觸發測試失敗。
 2. **README 內容與 repo 一致：通過。** README 包含 Quick Start（含 `python -m uv`）、架構、測試方式、第一版壓測結果、已知限制與截圖；安全段落使用遮罩示例，未見真實 key 材料。
-3. **完整套件證據：通過。** `reports/raw/E/pytest.txt` 記錄 `165 passed, 1 xfailed`，退出碼為 0。
+3. **完整套件證據：通過。** `reports/evidence/E/pytest.txt` 記錄 `165 passed, 1 xfailed`，退出碼為 0。
 
 ## 剩餘問題
 

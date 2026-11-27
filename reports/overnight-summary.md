@@ -50,7 +50,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 
 - **`tests/e2e/test_grafana.py`**（22 項）：
   - 從 `.env` 讀帳密，透過登入表單登入，帳密不會出現在任何輸出中；
-  - 以 kiosk 模式開啟 platform-overview，截圖存為 `reports/raw/1.9/platform-overview-kiosk.png`；
+  - 以 kiosk 模式開啟 platform-overview，截圖存為 `reports/evidence/1.9/platform-overview-kiosk.png`；
   - 測試會先自行產生兩個應用的流量、429 與 Qdrant 呼叫。
 - **斷言**：
   - 頁面上沒有 No data 類文字；
@@ -65,12 +65,12 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 - **Codex**：
   - 共審閱 4 次：3 輪「意見 → 修正」，再加 1 次最終確認。全文在附錄 B 到 E。
   - 必修項目（密鑰遮蔽）已修正。
-- **完整套件**：143 passed, 1 xfailed（`reports/raw/1.9/pytest.txt`）。
+- **完整套件**：143 passed, 1 xfailed（`reports/evidence/1.9/pytest.txt`）。
 - **剩下的問題**（低嚴重度，未修）：`test_stat_tile_has_value` 只檢查「不是 `–`」，沒有檢查是否為數字。
 
 ### B. 1.10 補驗證
 
-- **重新實測退化**：新增 `loadtest/repro_degradation.py`，依序執行 fresh → c=8 超載 → c=2 ×2 → c=4 → c=1 → 重啟，共 2 個循環。原始資料在 `reports/raw/1.10/degradation/`。
+- **重新實測退化**：新增 `loadtest/repro_degradation.py`，依序執行 fresh → c=8 超載 → c=2 ×2 → c=4 → c=1 → 重啟，共 2 個循環。原始資料在 `reports/evidence/1.10/degradation/`。
 
   | 情境 | c=2 吞吐 (tok/s) |
   |---|---:|
@@ -90,7 +90,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
   - **「fully degraded」與原始資料不符。** 已改正。
 
   另外：
-  - 補上原始資料：基準報告引用的 3 組原始輸出已存到 `reports/raw/1.10/`。
+  - 補上原始資料：基準報告引用的 3 組原始輸出已存到 `reports/evidence/1.10/`。
   - 新增測試：
     - 用假 SSE 伺服器驗證 TTFT 與 decode 公式，並做過突變檢查；
     - 驗證 summarize 的計算結果完全正確；
@@ -102,7 +102,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 ### C. LiteLLM 並發計數 bug 的 issue 草稿
 
 - **issue 草稿**：`docs/upstream/litellm-parallel-counter.md`，**沒有送出**。
-- **重現腳本**：`docs/upstream/repro_parallel_counter.py`，實際輸出存在 `reports/raw/C/repro-output.txt`。
+- **重現腳本**：`docs/upstream/repro_parallel_counter.py`，實際輸出存在 `reports/evidence/C/repro-output.txt`。
 - **重現了以下行為（LiteLLM 1.83.14）**：
   - 對 key 不允許的模型送出請求（`/v1/embeddings` 或 `/v1/chat/completions` 都一樣）：每次 401 讓計數 **−1**。
   - 計數到 −3 後，同時開 3 條串流都回 200，超過 key 的並發上限 2。
@@ -111,7 +111,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
   - 401 不會出現在 metrics；400 會被記錄，但 `exception_status` 是 `None`。
 - **草稿內容**：
   - 「實測」和「推論」分開寫；
-  - 原始碼位置有行號，逐字摘錄存在 `reports/raw/C/litellm-source-excerpts.txt`；
+  - 原始碼位置有行號，逐字摘錄存在 `reports/evidence/C/litellm-source-excerpts.txt`；
   - 版本資訊包含 image digest。
 - **依指示維持現狀**：xfail(strict) 與 README 的記錄都保留，沒有加任何防護。
 - **Codex**：
@@ -127,7 +127,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 - **跑 5 分鐘的結果**：support-rag 75 回合、onboarding-agent 75 回合，全部回 200，TTFT p50 約 0.05 s。
 - **新增 `scripts/screenshot_dashboard.py`**：用 Playwright 以 kiosk 模式截圖；只要有任何面板沒有資料，就不會存檔。
 - **截圖 `docs/images/dashboard.png`**：16 個面板都有資料，包括 TTFT。我親自看過截圖。
-- **截圖資料來源**（細節見 `reports/raw/D/screenshot.txt`）：
+- **截圖資料來源**（細節見 `reports/evidence/D/screenshot.txt`）：
   - Qdrant 面板的資料來自 pytest，不是 app_traffic，因為 RAG 應用還沒做；
   - 時間軸是 UTC+8。
 - **Codex**：
@@ -168,7 +168,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 
 ## 卡住的問題
 
-1. **LiteLLM 的 spend log 寫入問題，原因不明**（`reports/raw/incidents/spendlog-stall.txt`）：
+1. **LiteLLM 的 spend log 寫入問題，原因不明**（`reports/evidence/incidents/spendlog-stall.txt`）：
    - **寫入曾中斷**：16:18 到約 16:27 UTC 之間的請求都沒有寫入 `LiteLLM_SpendLogs`，資料遺失，不是延遲寫入。我重啟了 litellm 單一服務，之後才自行恢復。
    - **一直漏記**：即使在正常的時候，chat completion 也大量漏記。app_traffic 的 5 分鐘內：
 
@@ -185,7 +185,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 
 ## 需要你決定的事
 
-0. **【安全，優先】`POSTGRES_PASSWORD` 與 `REDIS_PASSWORD` 的明文進了本地 commit `0e5830d`**（檔案 `reports/raw/C/pytest.txt`）。
+0. **【安全，優先】`POSTGRES_PASSWORD` 與 `REDIS_PASSWORD` 的明文進了本地 commit `0e5830d`**（檔案 `reports/evidence/C/pytest.txt`）。
    - **原因**：某次執行有大量 error，pytest 的長 traceback 印出了整個 `env` fixture。
    - **範圍**：分支只在本地，沒有 push。掃描了全部 55 個 commit，只有這一個 blob 受影響。
    - **已做**：
@@ -232,10 +232,10 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
    - 1.9：附錄 A–E；
    - 1.10.md、C.md、D.md、E.md。
 
-   原始證據在 `reports/raw/<項目>/`，包括 `pytest.txt`、Codex 的 prompt、回覆與 log、截圖、壓測原始資料。
+   原始證據在 `reports/evidence/<項目>/`，包括 `pytest.txt`、Codex 的 prompt 與回覆、截圖、壓測原始資料（log 已移除：Agent 原始對話紀錄含本機使用者資訊，不進版控）。
 4. **看圖**：
    - `docs/images/dashboard.png`：README 截圖；
-   - `reports/raw/1.9/platform-overview-kiosk.png`：e2e 測試的截圖。
+   - `reports/evidence/1.9/platform-overview-kiosk.png`：e2e 測試的截圖。
 5. **自己重跑**（平台要先啟動）：
    ```bash
    python -m uv sync && python -m uv run playwright install chromium
@@ -272,7 +272,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 - `bootstrap_keys.py --rotate`：兩把應用 key 換新（新的末 4 碼 `5dmg`、`pmKw`），舊 key 已刪除。驗證：舊 key 呼叫 `/v1/models` 回 **401**、新 key 回 **200**；`.env` 中只有這 4 個變數改變，其餘全部不變。
 - `docker compose up -d --force-recreate litellm` 重建容器，舊 log 已清掉（沒有使用 `down -v`，沒有刪除 volume）。
 - 重建後的 litellm log 跑過完整測試：`test_litellm_log_contains_no_keys` **通過**。
-- 完整 pytest：**172 passed, 1 xfailed**（`reports/raw/morning/pytest.txt`，在第 3 項的改動之後執行，涵蓋第 1～3 項）。過程：
+- 完整 pytest：**172 passed, 1 xfailed**（`reports/evidence/morning/pytest.txt`，在第 3 項的改動之後執行，涵蓋第 1～3 項）。過程：
   - 第 1 次：`1 failed, 22 errors`，全部是重建 litellm 後 Prometheus counter 歸零的已知副作用（約 15 分鐘）。
   - 第 2 次（過了 15 分鐘）：剩 `test_in_flight_reads_zero_when_idle` 失敗，而且單獨重跑也穩定失敗。查到是**測試本身的時間 bug**，不是平台問題：
     - 它用 range query 的最後一步讀面板值，但 step 對齊在 15 秒格線上，最後一步可能落在它等待的那次新 scrape **之前**，於是讀到前一個測試的串流（即時 gauge 在測試前 7 秒已回到閒置）。重建 litellm 改變了 scrape 的相位，所以昨晚通過、今天穩定失敗。
@@ -282,7 +282,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 
 ### 3. 清理歷史與原始輸出遮罩
 - 改寫範圍只有 `main..overnight`；`main` 仍是 `e25cac1`，沒有變動。
-- 方法：`git filter-branch --index-filter`，在每個 commit 中，若 `reports/raw/C/pytest.txt` 是含密碼的那個 blob，就換成 `4feff3a` 中已遮罩的版本（同一次測試的輸出，只是遮罩過）。實際只有原本的 `0e5830d` 含有它。改寫後分支最新的 tree 與改寫前完全相同（diff 為空），只有 commit hash 改變。
+- 方法：`git filter-branch --index-filter`，在每個 commit 中，若 `reports/evidence/C/pytest.txt` 是含密碼的那個 blob，就換成 `4feff3a` 中已遮罩的版本（同一次測試的輸出，只是遮罩過）。實際只有原本的 `0e5830d` 含有它。改寫後分支最新的 tree 與改寫前完全相同（diff 為空），只有 commit hash 改變。
 - 刪除了 filter-branch 留下的備份 ref `refs/original/refs/heads/overnight`（它仍指向舊歷史）。另外，改寫時暫存工作區用的 stash 也會指到舊歷史，已 pop 掉。
 - **掃描結果**（逐一檢查每個 commit 的所有 blob 與 commit 訊息，比對舊與新的全部密鑰值；腳本只印變數名稱與路徑）：
   - `main..overnight`：**沒有**任何舊密碼或完整 key。
@@ -308,14 +308,14 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 - **驗證**（臨時 key，結束後刪除並確認）：20 筆 chat 中，id 原本沒被用過的 5 筆 → **5/5 有紀錄**；id 已存在的 15 筆 → **0/15**；embedding 10/10。預測與結果完全一致。
 - 沒有調高 log level（不需要），沒有改設定，也沒有刪除 DB 資料。
 - 昨晚「約 10 分鐘完全沒有寫入」沒有重現，可能同因，**未驗證**。
-- 證據：`reports/raw/spendlog/`（`FINDINGS.md`、`spendlog_probe.py`、`run1-baseline.txt`、`run2-collision.txt`，輸出經 `scripts/rawlog.py` 寫檔）。README 的已知限制已改寫成確認後的原因。
+- 證據：`reports/evidence/spendlog/`（`FINDINGS.md`、`spendlog_probe.py`、`run1-baseline.txt`、`run2-collision.txt`，輸出經 `scripts/rawlog.py` 寫檔）。README 的已知限制已改寫成確認後的原因。
 - **需要你決定**：
   1. 要不要把 LiteLLM 的 provider 改成 `ollama_chat/`（預期會改用 UUID，**尚未驗證**，是設定變更）；或等第二階段換 vLLM（id 為 UUID）。
   2. 要不要寫成 LiteLLM 的 issue 草稿。
   3. 要不要把 `test_spend_log_increments`（目前只檢查總筆數增加，是弱斷言，抓不到這個問題）改成「這一筆請求自己的紀錄存在」。在目前環境它會失敗，或者標成 `xfail(strict)`。
 
 ### 早上處理的總結
-- 完整測試：**172 passed, 1 xfailed**（`reports/raw/morning/pytest.txt`）。
+- 完整測試：**172 passed, 1 xfailed**（`reports/evidence/morning/pytest.txt`）。
 - `main` 仍是 `e25cac1`，沒有合併、沒有 push。
 - `.env` 只改了 4 個值：`POSTGRES_PASSWORD`、`REDIS_PASSWORD`、兩把應用 key，其餘不變。全程沒有印出任何值。
 - 沒有使用 `down -v`，沒有刪除任何 volume。
@@ -329,12 +329,12 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 - **驗證**：
   - 先在 litellm 容器內用 SDK 試：非串流的 id 變成 `chatcmpl-<UUID>`。
   - 再改 proxy 設定：`chat-default` 改為 `ollama_chat/qwen2.5:7b-instruct`，`api_base` 改為 `http://ollama:11434`（Ollama 原生 `/api/chat`）。embedding 維持 `openai/bge-m3`，它本來就是 UUID。
-  - 用臨時 key 每組送 20 筆：非串流 chat **20/20**、串流 chat **20/20**、embedding 20/20 都有 spend log 紀錄（`reports/raw/spendlog/run3-ollama-chat.txt`）。
+  - 用臨時 key 每組送 20 筆：非串流 chat **20/20**、串流 chat **20/20**、embedding 20/20 都有 spend log 紀錄（`reports/evidence/spendlog/run3-ollama-chat.txt`）。
 - **測試加嚴**：
   - `test_spend_log_increments` 改寫為 `test_every_chat_has_its_own_spend_log_row`：臨時 key 送 3 筆非串流加 3 筆串流，每一個 response id 都必須在 spend log 中有這把 key 自己的紀錄，而且沒有多餘的。
   - 反向驗證：暫時還原成 `openai/` 時，這個測試會失敗（抓到 6 個 `chatcmpl-<短數字>` id）。
   - 另加 `test_chat_on_ollama_uses_native_provider`：只要 chat 的後端是 Ollama，就不得走 `/v1`。
-- **完整 pytest：173 passed, 1 xfailed**（`reports/raw/morning-ollama-chat/pytest.txt`；等 litellm 重啟滿 15 分鐘後才執行）。
+- **完整 pytest：173 passed, 1 xfailed**（`reports/evidence/morning-ollama-chat/pytest.txt`；等 litellm 重啟滿 15 分鐘後才執行）。
 - **副作用（已寫進 README 已知限制）**：
   - 走 `ollama_chat/` 時，串流回應中**每個 chunk 的 id 都不同**（實測 22 個 chunk 有 21 個 id），不符合 OpenAI 規格；只依 id 合併 chunk 的 client 會出錯。
   - 換成 vLLM 後改回 `openai/`，就能同時解決這個問題與 spend log 碰撞。
@@ -348,7 +348,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 - **執行方式**：
   - 指令是 `python loadtest/bench.py --restart-backend`，並發 1/2/4/8/16，每一級開始前都重啟 Ollama 並暖機。
   - 使用臨時 key `loadtest-1795760885`。結束後已刪除並確認：腳本結束碼為 0，刪除失敗時會是 3。
-  - 原始資料在 `reports/raw/1.10/ollama-chat-restart/`。
+  - 原始資料在 `reports/evidence/1.10/ollama-chat-restart/`。
 - **報告**：
   - 新增 `docs/benchmarks/2026-11-27-ollama-chat.md`，內含完整結果與「provider 變更前後比較」。
   - 舊的 `2026-11-26-baseline.md` 開頭加註「目前數字以新報告為準」，原內容未改。
@@ -367,7 +367,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 - **測試**：
   - `test_benchmark_table_matches_raw_baseline` 改為比對新的原始資料。
   - 新增 `test_provider_comparison_matches_both_raw_runs`：比較表的新舊數字與 Δ 都必須和兩份 `summary.csv` 一致。反向驗證：改錯報告中一個 Δ 時，測試會失敗。
-- **完整 pytest：174 passed, 1 xfailed**（`reports/raw/bench-ollama-chat/pytest.txt`）。
+- **完整 pytest：174 passed, 1 xfailed**（`reports/evidence/bench-ollama-chat/pytest.txt`）。
   - 第一次跑有 1 個失敗：README 表格已換成新數字，但測試仍比對舊資料。修正測試後通過。
 - **沒有重跑**：`repro_degradation.py`（超載後的 c=2 退化）。README 已註明這部分仍是 `/v1` 的數字。要不要重跑，由你決定。
 
@@ -375,7 +375,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 - **重跑**：
   - 指令是 `python -I loadtest/repro_degradation.py`，共 2 輪、每輪 7 步。
   - 每一步都是獨立的 `bench.py` 執行，各用一把臨時 key，全部已刪除，步驟 log 中沒有刪除失敗的紀錄。
-  - 原始資料在 `reports/raw/1.10/degradation-ollama-chat/`。
+  - 原始資料在 `reports/evidence/1.10/degradation-ollama-chat/`。
 - **結果**：退化仍然重現，而且比舊設定更一致。
 
   | | `/v1`（舊） | `ollama_chat/`（目前） |
@@ -400,7 +400,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
   - 新增 `test_degradation_comparison_matches_both_raw_runs`：報告中並列表的 14 列都必須和兩份 `summary.csv` 一致。
   - 比較測試改為檢查 README 與報告都含有上面這句結論，而且都不再出現「結果一致」或 "results are consistent"。
   - 反向驗證：改錯 README 的下降區間，或改錯表格的一格時，對應的測試都會失敗。
-- **完整 pytest：176 passed, 1 xfailed**（`reports/raw/degradation-ollama-chat/pytest.txt`）。
+- **完整 pytest：176 passed, 1 xfailed**（`reports/evidence/degradation-ollama-chat/pytest.txt`）。
 
 ### 8. Codex 完整驗證「不通過」的處理
 Codex 確認的部分：歷史中沒有密碼與完整 key、LiteLLM log 乾淨、spend log 正確、壓測數字與 CSV 相符。以下 5 項是它判定不通過的原因：
@@ -425,11 +425,11 @@ Codex 確認的部分：歷史中沒有密碼與完整 key、LiteLLM log 乾淨�
    - 新增 `scripts/dashboard_window_traffic.py`，用 Prometheus 查同一時間窗。結果只有 `onboarding-agent` 約 105 筆、`support-rag` 約 210 筆，沒有失敗，也沒有 Qdrant 呼叫。
    - 新圖：Requests 315、Error rate 0.0%、p95 latency 3.83 s、p95 TTFT 48.73 ms。
    - Qdrant 面板沒有資料，因為還沒有應用呼叫 Qdrant。為此 `screenshot_dashboard.py` 加了 `--allow-idle-qdrant`，只豁免 Qdrant 面板，並會列出被豁免的面板。
-   - README 圖說寫明時間範圍與流量來源。證據在 `reports/raw/dashboard/`。
+   - README 圖說寫明時間範圍與流量來源。證據在 `reports/evidence/dashboard/`。
 4. **`git diff --check main..overnight`**（commit `6396033`）
    - 去掉 25 個檔案的行尾空白與檔尾空行，都是原始 log 與報告，只動空白。
    - D.md 與 Codex D 摘要中的 Markdown 強制換行，從兩個空格改成行尾 `\`，渲染結果相同。
-   - `D/pytest-C-run-0026-redacted.txt` 被判為「衝突標記」是誤報：那行是 pytest 的摘要行 `======= 2 failed ...`。處理方式是在 `.gitattributes` 對 `reports/raw/**` 設定 `conflict-marker-size=32`，不改原始輸出。
+   - `D/pytest-C-run-0026-redacted.txt` 被判為「衝突標記」是誤報：那行是 pytest 的摘要行 `======= 2 failed ...`。處理方式是在 `.gitattributes` 對 `reports/evidence/**` 設定 `conflict-marker-size=32`，不改原始輸出。
    - `rawlog.write_raw` 今後會自動去除行尾空白。
    - 新增 `test_tracked_text_files_pass_git_diff_check`，檢查所有追蹤中的文字檔。
    - 現在 `git diff --check main..overnight` 沒有任何輸出。
@@ -444,7 +444,7 @@ Codex 確認的部分：歷史中沒有密碼與完整 key、LiteLLM log 乾淨�
      - `test_baseline_degradation_and_back_to_back_tables_match_raw`：舊報告的退化表與 back-to-back 表 vs CSV。
    - 反向驗證：在這三張表各改錯一格，對應的測試都會失敗。
 - **測試結果**（分路徑執行）：
-  - `tests/platform`：**162 passed, 1 xfailed**（`reports/raw/codex-fix-platform/pytest.txt`）。
-  - `tests/e2e`：**22 passed**（`reports/raw/codex-fix-e2e/pytest.txt`）。
+  - `tests/platform`：**162 passed, 1 xfailed**（`reports/evidence/codex-fix-platform/pytest.txt`）。
+  - `tests/e2e`：**22 passed**（`reports/evidence/codex-fix-e2e/pytest.txt`）。
   - 合計 184 passed, 1 xfailed。
 - 跑完測試後 `git status` 乾淨：e2e 截圖只寫進被忽略的 `latest/`。

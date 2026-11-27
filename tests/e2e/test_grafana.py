@@ -2,7 +2,7 @@
 
 Logs in through the real login form (credentials from .env, never printed),
 opens platform-overview in kiosk mode, saves a screenshot under
-reports/raw/1.9/latest/ (git-ignored; the committed reports/raw/1.9/
+reports/raw/1.9/latest/ (git-ignored; the committed reports/evidence/1.9/
 platform-overview-kiosk.png is the one reviewed in the 1.9 report and is
 never overwritten) and asserts that every panel actually shows data:
 

@@ -6,12 +6,12 @@
   - `loadtest/app_traffic.py`
   - `scripts/screenshot_dashboard.py`
   - `docs/images/dashboard.png`
-- **證據**：`reports/raw/D/`，內含：
+- **證據**：`reports/evidence/D/`，內含：
   - `app-traffic.txt`：流量執行結果
   - `screenshot.txt`：截圖輸出與資料來源說明
   - `dashboard.png`：截圖副本
   - `pytest.txt`：完整套件
-  - `codex-*`：prompt、回覆與 log
+  - `codex-*`：prompt 與回覆（log 已移除：Agent 原始對話紀錄含本機使用者資訊，不進版控）
 
 ## 我親自看截圖的觀察
 
@@ -50,7 +50,7 @@
 
 ## 問題清單
 
-- [reports/raw/D/screenshot.txt](/D:/onprem-agent-lab/reports/raw/D/screenshot.txt:1) — **必修**：報告的 UTC 截圖時間與圖片顯示時間軸不一致，需釐清時間區設定並補充 Qdrant 面板資料來源，否則無法確認所有面板資料都來自本次流量。
+- [reports/evidence/D/screenshot.txt](/D:/onprem-agent-lab/reports/evidence/D/screenshot.txt:1) — **必修**：報告的 UTC 截圖時間與圖片顯示時間軸不一致，需釐清時間區設定並補充 Qdrant 面板資料來源，否則無法確認所有面板資料都來自本次流量。
 - [scripts/screenshot_dashboard.py](/D:/onprem-agent-lab/scripts/screenshot_dashboard.py:64) — **建議**：stat 檢查把 `0` 視為資料。對 Collections、Vectors 這類面板而言，零值可能代表空集合，而非證明近期流量；可加上與新鮮度或查詢時間相關的檢查。
 - [scripts/screenshot_dashboard.py](/D:/onprem-agent-lab/scripts/screenshot_dashboard.py:102) — **建議**：失敗時不寫入新檔，但不處理目標路徑既有截圖；舊圖可能被誤當成此次產物。
 - [loadtest/app_traffic.py](/D:/onprem-agent-lab/loadtest/app_traffic.py:145) — **建議**：未驗證 `--fraction` 範圍；不合法輸入可能讓 pacing 超出設定限額。
@@ -69,7 +69,7 @@
 | 建議：沒有檢查 `--fraction` 的範圍 | 只接受 (0, 1] 的值，超出範圍時以結束碼 2 結束。新增一項測試 |
 | 建議：沒有實際驗證同時進行的請求數 | 新增測試：用假的 gateway 讓兩個應用的迴圈高速跑 1.5 秒，記錄每把 key 同時進行中的請求數上限，斷言每把 key 都是 **1**，且所有請求都回 200 |
 
-修正後的完整套件：157 passed, 1 xfailed（`reports/raw/D/pytest.txt`）。
+修正後的完整套件：157 passed, 1 xfailed（`reports/evidence/D/pytest.txt`）。
 
 
 ## 第 2 輪（commit `b378994`、`c8167a4`）
@@ -94,7 +94,7 @@
 
 ## 剩餘問題
 
-- [reports/raw/D/screenshot.txt](/D:/onprem-agent-lab/reports/raw/D/screenshot.txt:15) — **必修**：Qdrant 資料點約在 00:30，但所列完整套件執行於 01:00:37 開始。需以可核對的執行證據說明 Qdrant 點的實際來源與時間。
+- [reports/evidence/D/screenshot.txt](/D:/onprem-agent-lab/reports/evidence/D/screenshot.txt:15) — **必修**：Qdrant 資料點約在 00:30，但所列完整套件執行於 01:00:37 開始。需以可核對的執行證據說明 Qdrant 點的實際來源與時間。
 - [reports/verification/D.md](/D:/onprem-agent-lab/reports/verification/D.md:20) — **建議**：目前報告沿用「00:28–00:31 是 pytest 尾段」的說法；應在 provenance 澄清後同步修正。此項本身非額外必修，但與上述必修相連。
 
 **我沒有親自執行任何東西；只閱讀檔案與 Git 歷史，並直接查看圖片。**
@@ -126,7 +126,7 @@
 
 ## 剩餘問題
 
-- `reports/raw/D/screenshot.txt:23` — **建議**：把「line 139」改為實際測試所在的 line 142；測試名稱及 83% 進度在遮蔽版紀錄中可核對。此建議不構成不通過。
+- `reports/evidence/D/screenshot.txt:23` — **建議**：把「line 139」改為實際測試所在的 line 142；測試名稱及 83% 進度在遮蔽版紀錄中可核對。此建議不構成不通過。
 
 我沒有親自執行任何東西；僅閱讀檔案與 Git 歷史，並直接查看圖片。
 

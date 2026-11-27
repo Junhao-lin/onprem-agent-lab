@@ -1,9 +1,12 @@
-"""Masked writer for raw evidence (reports/raw/, loadtest results).
+"""Masked writer for raw output (reports/raw/ - local, git-ignored - and loadtest results)
+and for evidence copied into reports/evidence/.
 
 Every text file of raw output goes through `write_raw`, which redacts before writing:
   - every secret-looking .env value (names containing PASSWORD/KEY/SALT/SECRET/TOKEN,
     plus other non-public values of 4+ chars) -> [REDACTED]
   - any `sk-...` token -> the project mask format sk-…last4
+  - local identity: any Windows user-profile path (with the rest of the path) -> <HOME>,
+    the local user name -> <user>, e-mail addresses -> <email>
 Files are written as UTF-8 with LF line endings.
 
 Library:
@@ -14,10 +17,12 @@ Shell pipelines (instead of `> file` / `tee`):
     some-command 2>&1 | python -I scripts/rawlog.py reports/raw/<item>/out.txt
 
 tests/platform/test_repo_hygiene.py checks that writers use this module and that
-nothing under reports/raw/ contains a secret.
+nothing under reports/ contains a secret.
 """
 from __future__ import annotations
 
+import getpass
+import os
 import re
 import sys
 from pathlib import Path
@@ -28,6 +33,32 @@ SK_TOKEN = re.compile(r"sk-[A-Za-z0-9_\-]{8,}")
 SECRET_NAME = re.compile(r"(PASSWORD|KEY|SALT|SECRET|TOKEN)", re.I)
 # Values too generic to redact without mangling prose (ports, model names, ...).
 NOT_SECRET_VARS = re.compile(r"(_PORT|_USER|_DB|_MODEL|_RETENTION|NUM_PARALLEL|MAX_LOADED_MODELS|KEEP_ALIVE)$")
+# A Windows user-profile path: drive letter, colon, the Users folder, the account folder and every
+# following segment, with single, doubled (JSON-escaped) or forward slashes. Per-user folder names go too.
+PROFILE_PATH = re.compile(r"\b[A-Za-z]:(?:\\{1,2}|/)Users(?:(?:\\{1,2}|/)[^\\/\s\"'`<>|:*?,;()\[\]]+)+", re.I)
+EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*"
+                   r"\.(?:com|net|org|io|dev|ai|app|edu|gov|info|me|co|tw|jp|cn|uk|de)\b", re.I)
+
+
+def local_user_names() -> list[str]:
+    """The local account name(s) to mask (3+ chars), from the environment, not from the repo."""
+    names = {Path.home().name, os.environ.get("USERNAME", ""), os.environ.get("USER", "")}
+    try:
+        names.add(getpass.getuser())
+    except Exception:  # noqa: BLE001
+        pass
+    return sorted({n for n in names if len(n) >= 3}, key=len, reverse=True)
+
+
+def redact_identity(text: str) -> tuple[str, int]:
+    """Mask local identity: user-profile paths, the local user name, e-mail addresses."""
+    text, a = PROFILE_PATH.subn("<HOME>", text)
+    b = 0
+    for name in local_user_names():
+        text, n = re.subn(rf"(?<![A-Za-z0-9]){re.escape(name)}(?![A-Za-z0-9])", "<user>", text, flags=re.I)
+        b += n
+    text, c = EMAIL.subn("<email>", text)
+    return text, a + b + c
 
 
 def parse_env_value(raw: str) -> str:
@@ -68,7 +99,8 @@ def redact(text: str, secrets: list[str] | None = None) -> tuple[str, int]:
             hits += text.count(s)
             text = text.replace(s, "[REDACTED]")
     text, n = SK_TOKEN.subn(lambda m: f"sk-…{m.group()[-4:]}", text)
-    return text, hits + n
+    text, m = redact_identity(text)
+    return text, hits + n + m
 
 
 def write_raw(path: Path | str, text: str, secrets: list[str] | None = None) -> int:

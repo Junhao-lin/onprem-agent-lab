@@ -86,7 +86,7 @@ def test_model_names_in_sync():
 def test_chat_on_ollama_uses_native_provider():
     """While the backend is Ollama, chat must go through ollama_chat/ (UUID response ids),
     not openai/ on Ollama's /v1, whose "chatcmpl-<0..999>" ids collide on the spend-log
-    primary key (reports/raw/spendlog/FINDINGS.md)."""
+    primary key (reports/evidence/spendlog/FINDINGS.md)."""
     cfg = (REPO / "infra/litellm/config.yaml").read_text(encoding="utf-8")
     block = re.search(r"model_name:\s*chat-default\n(.*?)(?=\n\s*- model_name:|\Z)", cfg, re.S).group(1)
     model = re.search(r"^\s*model:\s*(\S+)", block, re.M).group(1)
@@ -181,13 +181,85 @@ def test_e2e_screenshot_goes_to_ignored_path():
     src = (REPO / "tests/e2e/test_grafana.py").read_text(encoding="utf-8")
     out_dir = re.search(r'^OUT_DIR = REPO / "([^"]+)"', src, re.M).group(1)
     shot = f"{out_dir}/platform-overview-kiosk.png"
-    reviewed = "reports/raw/1.9/platform-overview-kiosk.png"
+    reviewed = "reports/evidence/1.9/platform-overview-kiosk.png"
     assert shot != reviewed
     ignored = subprocess.run(["git", "check-ignore", "-q", shot], cwd=REPO)
     assert ignored.returncode == 0, f"{shot} is not git-ignored"
     tracked = subprocess.run(["git", "ls-files", "--error-unmatch", reviewed], cwd=REPO,
                              capture_output=True)
     assert tracked.returncode == 0, "the reviewed 1.9 screenshot must stay committed"
+
+
+FORBIDDEN_WORDS_FILE = REPO / ".local/forbidden-words.txt"   # git-ignored, local only
+
+
+def _tracked_text_files():
+    files = subprocess.run(["git", "ls-files", "-z"], cwd=REPO, capture_output=True,
+                           check=True).stdout.decode("utf-8").split("\0")
+    for rel in filter(None, files):
+        p = REPO / rel
+        if p.is_file():
+            data = p.read_bytes()
+            text = data.decode("latin-1") if b"\0" in data[:4096] else data.decode("utf-8", "replace")
+            yield rel, text
+
+
+def test_forbidden_words_file_is_local_only():
+    r = subprocess.run(["git", "check-ignore", "-q", ".local/forbidden-words.txt"], cwd=REPO)
+    assert r.returncode == 0, ".local/ must be git-ignored"
+    tracked = subprocess.run(["git", "ls-files", ".local"], cwd=REPO, capture_output=True, text=True).stdout
+    assert tracked.strip() == ""
+
+
+def test_no_forbidden_words_in_tracked_files():
+    """Words listed in the local, git-ignored .local/forbidden-words.txt (e.g. a company
+    name) must not appear in any tracked file's content or path. The list itself never
+    enters the repo; failures name the file and the word's line number in the list, not the word."""
+    if not FORBIDDEN_WORDS_FILE.exists():
+        pytest.skip("no local .local/forbidden-words.txt on this machine")
+    words = [w.strip() for w in FORBIDDEN_WORDS_FILE.read_text(encoding="utf-8").splitlines()
+             if w.strip() and not w.lstrip().startswith("#")]
+    assert words, "forbidden-words list is empty"
+    hits = []
+    for rel, text in _tracked_text_files():
+        for i, w in enumerate(words, 1):
+            n = text.lower().count(w.lower()) + rel.lower().count(w.lower())
+            if n:
+                hits.append(f"{rel}: word #{i} x{n}")
+    assert hits == [], hits
+
+
+def test_no_local_identity_in_tracked_files():
+    """No tracked file carries this machine's user-profile path, account name or an
+    e-mail address (same detectors as rawlog's masking, values taken at runtime)."""
+    rawlog = _rawlog()
+    hits = []
+    for rel, text in _tracked_text_files():
+        _, n = rawlog.redact_identity(text)
+        if n:
+            hits.append(f"{rel}: {n}")
+    assert hits == [], hits
+
+
+def test_rawlog_masks_local_identity(tmp_path):
+    from pathlib import Path as _P
+    rawlog = _rawlog()
+    home, user = str(_P.home()), _P.home().name
+    sample = (f"{home}\\x.txt {home.replace(chr(92), '/')}/y {home.replace(chr(92), chr(92) * 2)}\\\\z "
+              f"user {user} mail " + "a.b" + "@" + "example.org" + " keep @pytest.fixture")
+    out = tmp_path / "id.txt"
+    rawlog.write_raw(out, sample, [])
+    text = out.read_text(encoding="utf-8")
+    assert user.lower() not in text.lower() and "@example.org" not in text
+    assert text.count("<HOME>") == 3 and "<email>" in text and "@pytest.fixture" in text
+
+
+def test_reports_raw_is_local_only():
+    """reports/raw/ holds local raw output (incl. agent transcripts): ignored, nothing tracked."""
+    r = subprocess.run(["git", "check-ignore", "-q", "reports/raw/x/codex.log"], cwd=REPO)
+    assert r.returncode == 0, "reports/raw/ must be git-ignored"
+    tracked = subprocess.run(["git", "ls-files", "reports/raw"], cwd=REPO, capture_output=True, text=True).stdout
+    assert tracked.strip() == "", "files tracked under reports/raw/"
 
 
 def test_rawlog_cli_masks_real_env_values(tmp_path):

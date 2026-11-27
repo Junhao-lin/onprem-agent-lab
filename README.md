@@ -11,7 +11,7 @@
 - **流量來源**：只有 `loadtest/app_traffic.py` 以兩把正式 key（`support-rag`、`onboarding-agent`）送出的一般流量。速率在各自限額內，150 + 150 輪全部回 200。這段流量從 15:22:08 起跑 10 分鐘，截圖範圍完全落在其中。
 - **範圍內沒有測試、壓測或 master key 的流量**，也沒有失敗的請求。依據是截圖當下對 Prometheus 的查詢結果。所以錯誤率 0.0%，p95 延遲反映一般 chat 回應的長度。
 - **Qdrant 面板沒有資料**：RAG 應用尚未實作，沒有應用呼叫 Qdrant；Collections／Vectors 為 0 是實際值。
-- 證據：[`reports/raw/dashboard/`](reports/raw/dashboard/)（流量輸出、截圖輸出、時間窗內的流量查詢）。</sub>
+- 證據：[`reports/evidence/dashboard/`](reports/evidence/dashboard/)（流量輸出、截圖輸出、時間窗內的流量查詢）。</sub>
 
 ## 目錄
 
@@ -25,6 +25,7 @@
 8. [安全性](#安全性)
 9. [已知限制](#已知限制)
 10. [Roadmap](#roadmap)
+11. [授權](#授權)
 
 ## 專案簡介
 
@@ -278,11 +279,11 @@ python -m uv run pytest tests/e2e                # 只跑 Grafana 瀏覽器檢�
 
 | 路徑 | 測試數 | 指令 | 內容 |
 |---|---:|---|---|
-| `tests/platform` | 163（含 1 個 xfail） | `python -m uv run pytest tests/platform` | 容器、gateway、key、監控、儀表板 API、Qdrant、壓測工具、README 與 repo 衛生 |
+| `tests/platform` | 168（含 1 個 xfail） | `python -m uv run pytest tests/platform` | 容器、gateway、key、監控、儀表板 API、Qdrant、壓測工具、README 與 repo 衛生 |
 | `tests/e2e` | 22 | `python -m uv run pytest tests/e2e` | Playwright 瀏覽器檢查 Grafana 儀表板（需要 chromium） |
-| 全部（`tests`） | 185 | `python -m uv run pytest` | 上面兩者合計 |
+| 全部（`tests`） | 190 | `python -m uv run pytest` | 上面兩者合計 |
 
-只跑 `tests/platform` 時，結果是「162 passed, 1 xfailed」，不包含 e2e 的 22 個測試；完整套件是「184 passed, 1 xfailed」。
+只跑 `tests/platform` 時，結果是「167 passed, 1 xfailed」，不包含 e2e 的 22 個測試；完整套件是「189 passed, 1 xfailed」。
 
 | 檔案 | 驗證內容 |
 |---|---|
@@ -301,7 +302,7 @@ python -m uv run pytest tests/e2e                # 只跑 Grafana 瀏覽器檢�
 - **內部服務**沒有 host port。測試會啟動臨時的 probe 容器（`python:3.12.16-alpine3.24`），在 `oal-backend` 網路內發 HTTP 請求；請求內容（含密鑰）經 stdin 傳入，不會出現在命令列。
 - **限流測試**使用臨時 key（前綴 `pytest-tmp-`，限額極小），測完就刪除。應用的正式 key 只讀不改。
 - **測試語言**：一律用 Python 撰寫，避免不同 shell 的引號差異。
-- **驗證報告**：每一步的獨立驗證報告在 [`reports/verification/`](reports/verification/)，原始證據在 [`reports/raw/`](reports/raw/)，包括測試輸出、截圖與壓測原始資料。
+- **驗證報告**：每一步的獨立驗證報告在 [`reports/verification/`](reports/verification/)，證據在 [`reports/evidence/`](reports/evidence/)，包括測試輸出、截圖與壓測原始資料，都已遮罩。
 
 ## 壓測與基準結果
 
@@ -354,7 +355,12 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
   - 完整的 key 只寫進 `.env`。
 - 測試輸出也防止洩漏密鑰：
   - `env` fixture 的 repr 只顯示變數名稱；
-  - `reports/raw/` 與壓測結果等原始輸出一律經 `scripts/rawlog.py` 遮罩後才寫檔（所有 `.env` 密鑰值換成 `[REDACTED]`、`sk-` token 換成 `sk-…末4碼`）；shell 指令的輸出用 `<指令> | python -I scripts/rawlog.py <檔案>` 取代 `>` 或 `tee`。測試會靜態檢查寫檔程式都經過它，並掃描 `reports/` 底下所有檔案。
+  - 原始輸出（本機的 `reports/raw/`，不進版控）與壓測結果一律經 `scripts/rawlog.py` 遮罩後才寫檔：
+    - 所有 `.env` 密鑰值換成 `[REDACTED]`；
+    - `sk-` token 換成 `sk-…末4碼`；
+    - 本機身分資訊（使用者目錄路徑、帳號名稱、email）換成 `<HOME>`、`<user>`、`<email>`。
+  - 報告引用的證據遮罩後放在 `reports/evidence/`。Agent 的原始對話紀錄（`codex*.log`）只留在本機，不進版控。
+  - shell 指令的輸出用 `<指令> | python -I scripts/rawlog.py <檔案>` 取代 `>` 或 `tee`。測試會靜態檢查寫檔程式都經過它，並掃描 `reports/` 底下所有檔案。
 - key 只放在 `Authorization` header 或 JSON body，不放在 URL query：LiteLLM 的 access log 會記下完整的請求行。查詢某把 key 的資訊時，用該 key 本身呼叫 `GET /key/info`（不帶 `?key=`）。`tests/platform/test_container_logs.py` 在完整測試的最後掃描 `docker compose logs litellm`，確認沒有任何 key。
 - 只有 Gateway 與 Grafana 對 host 開放，而且只綁 `127.0.0.1`。Postgres、Redis、Ollama、Qdrant、Prometheus 預設都不對 host 開 port（除錯用的 override 見〈服務與 Port〉）。
 - LiteLLM 的 `/metrics/` 不需要驗證，Prometheus 因此不必持有 master key。也因為這樣，它只能從內網與本機 loopback 存取。
@@ -372,7 +378,7 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
   - 計數的 TTL 為 60 秒，每次更新都會重設。
   - 目前以 `xfail(strict=True)` 測試追蹤，上游修正後測試會提醒；沒有加防護。總並發仍受 Ollama 的 `OLLAMA_NUM_PARALLEL` 硬上限保護。
   - 重現腳本與 issue 草稿（尚未送出）在 [`docs/upstream/litellm-parallel-counter.md`](docs/upstream/litellm-parallel-counter.md)。
-- **串流 chunk 的 id 不一致（為修正 spend log 所付出的代價）**：Ollama 的 OpenAI 相容 API（`/v1`）回傳的 id 只有 `chatcmpl-<0–999>`，LiteLLM 拿它當 `LiteLLM_SpendLogs` 的主鍵，並以 `skip_duplicates` 寫入，所以 id 重複的 chat 紀錄會被靜默丟掉（實測一度只記到約 12%）。已把 `chat-default` 改用 LiteLLM 的 `ollama_chat/` provider（Ollama 原生 `/api/chat`），id 改成 UUID，每筆 chat 都會寫入，並由 `test_every_chat_has_its_own_spend_log_row` 檢查。副作用：串流回應中**每個 chunk 的 id 都不同**，不符合 OpenAI 規格（同一串流應共用一個 id）；只依 id 合併 chunk 的 client 會出錯。換成 vLLM 後改回 `openai/` 即可同時解決兩者。〈壓測與基準結果〉已用 `ollama_chat/` 重測：差異在 10% 以內，但每一級吞吐皆略低 1–6.5%（見該節）。調查與重現在 [`reports/raw/spendlog/FINDINGS.md`](reports/raw/spendlog/FINDINGS.md)；昨晚另觀察到約 10 分鐘完全沒有寫入，見 [`reports/raw/incidents/spendlog-stall.txt`](reports/raw/incidents/spendlog-stall.txt)。
+- **串流 chunk 的 id 不一致（為修正 spend log 所付出的代價）**：Ollama 的 OpenAI 相容 API（`/v1`）回傳的 id 只有 `chatcmpl-<0–999>`，LiteLLM 拿它當 `LiteLLM_SpendLogs` 的主鍵，並以 `skip_duplicates` 寫入，所以 id 重複的 chat 紀錄會被靜默丟掉（實測一度只記到約 12%）。已把 `chat-default` 改用 LiteLLM 的 `ollama_chat/` provider（Ollama 原生 `/api/chat`），id 改成 UUID，每筆 chat 都會寫入，並由 `test_every_chat_has_its_own_spend_log_row` 檢查。副作用：串流回應中**每個 chunk 的 id 都不同**，不符合 OpenAI 規格（同一串流應共用一個 id）；只依 id 合併 chunk 的 client 會出錯。換成 vLLM 後改回 `openai/` 即可同時解決兩者。〈壓測與基準結果〉已用 `ollama_chat/` 重測：差異在 10% 以內，但每一級吞吐皆略低 1–6.5%（見該節）。調查與重現在 [`reports/evidence/spendlog/FINDINGS.md`](reports/evidence/spendlog/FINDINGS.md)；昨晚另觀察到約 10 分鐘完全沒有寫入，見 [`reports/evidence/incidents/spendlog-stall.txt`](reports/evidence/incidents/spendlog-stall.txt)。
 
 **推論與監控**
 
@@ -389,3 +395,7 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
 - [ ] Phase 2：應用 A，產品客服 RAG。章節切塊、hybrid search + rerank、回答附出處、分數過低時拒答，加上 RAG 評測集
 - [ ] Phase 3：應用 B，新人教學 Agent。YAML 課程、Docker 沙盒檢查、MCP 工具
 - [ ] 推論後端換成 vLLM，並用同一套壓測與 `repro_degradation.py` 重新量測
+
+## 授權
+
+[MIT License](LICENSE)，作者 Jun-Hao Lin。
