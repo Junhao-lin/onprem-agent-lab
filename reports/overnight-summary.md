@@ -248,3 +248,18 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
    - `docs/benchmarks/2026-11-26-baseline.md` 的〈Operational risk〉；
    - `docs/upstream/litellm-parallel-counter.md`：issue 草稿，尚未送出。
 7. **確認沒問題後再合併**：例如 `git switch main && git merge --ff-only overnight`。如果要清理歷史，要在 merge 或 push 之前做。
+
+## 早上處理（2026-11-27）
+
+依你早上的決定處理，仍在 `overnight` 分支，沒有合併、沒有 push。
+
+### 1. key 外洩源頭：改用 header 傳 key
+- `scripts/bootstrap_keys.py`：`Gateway.request` 新增 `bearer` 參數，`key_info()` 改成用該 key 本身放在 `Authorization` header 呼叫 `GET /key/info`（不帶 `?key=`，LiteLLM 會回傳發出請求的 key 的資訊）。
+- `tests/platform/test_virtual_keys.py`：3 處 `/key/info?key=` 改為 header。repo 中已沒有任何把 key 放進 URL 的呼叫（`/key/list?key_alias=` 只帶 alias）。
+- 新測試 `tests/platform/test_container_logs.py`：
+  - 加上 `run_last` marker，`tests/platform/conftest.py` 的 `pytest_collection_modifyitems` 會把它排到整個 session 最後，另有測試確認排序；
+  - 掃描 `docker compose logs litellm`：不得出現兩把應用 key 與 master key 的完整值、不得有 `sk-` 開頭的長 token、不得有 `key=sk-`；
+  - 失敗訊息只列變數名稱與數量，不會印出 log 內容。
+- 驗證：改動前的 log 上這個測試**失敗**（找到 2 把應用 key 等），證明它抓得到；舊 log 要等第 2 項重建容器後才會清掉。
+- README：移除「完整 key 出現在 access log」這條已知限制，改寫進〈安全性〉，測試表加上新檔案。
+

@@ -64,12 +64,14 @@ class Gateway:
         self.master_key = master_key
 
     def request(self, method: str, path: str, body: dict | None = None,
-                query: dict | None = None) -> tuple[int, dict]:
+                query: dict | None = None, bearer: str | None = None) -> tuple[int, dict]:
+        """Keys only ever travel in the Authorization header (or a JSON body), never in
+        the URL: LiteLLM's access log records the full request line."""
         url = self.base + path
         if query:
             url += "?" + urllib.parse.urlencode(query)
         req = urllib.request.Request(url, method=method)
-        req.add_header("Authorization", f"Bearer {self.master_key}")
+        req.add_header("Authorization", f"Bearer {bearer or self.master_key}")
         data = None
         if body is not None:
             data = json.dumps(body).encode()
@@ -84,7 +86,8 @@ class Gateway:
                 return e.code, {}
 
     def key_info(self, key: str) -> dict | None:
-        status, body = self.request("GET", "/key/info", query={"key": key})
+        # Without ?key=, /key/info describes the key that authenticated the call.
+        status, body = self.request("GET", "/key/info", bearer=key)
         return body.get("info") if status == 200 else None
 
     def alias_exists(self, alias: str) -> bool:

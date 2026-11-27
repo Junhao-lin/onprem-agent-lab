@@ -222,3 +222,9 @@ def pytest_sessionfinish(session, exitstatus):
             gw.request("POST", "/key/delete", body={"key_aliases": left})
     except Exception:  # noqa: BLE001 - never fail the session on cleanup
         pass
+
+
+def pytest_collection_modifyitems(items):
+    """`run_last` tests (e.g. the container-log scan) run after everything else, so
+    they see the side effects of the whole session. Stable sort keeps other order."""
+    items.sort(key=lambda item: item.get_closest_marker("run_last") is not None)

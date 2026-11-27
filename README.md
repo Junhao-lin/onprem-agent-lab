@@ -281,6 +281,7 @@ python -m uv run pytest tests/e2e                # 只跑 Grafana 瀏覽器檢�
 | `tests/platform/test_dashboards.py` | JSON 與產生器一致、Grafana 實際載入的就是 repo 版本、每個面板的查詢都能執行、真實應用的流量／429／TTFT 會出現在對應面板、閒置時 In-flight 為 0、固定配色規則；另有 1 個 `xfail(strict)` 測試追蹤 LiteLLM 的上游 bug |
 | `tests/platform/test_qdrant.py` | 健康檢查不需驗證、資料 API 需要 key、gateway embedding → Qdrant 寫入 → 查詢的端到端流程 |
 | `tests/platform/test_loadtest.py` | 壓測工具的指標定義（用假的 SSE 伺服器驗證 TTFT 與 decode 公式）、percentile 計算、臨時 key 一定會被刪除（含失敗路徑）、示範流量不超過限額、一次小型端到端壓測 |
+| `tests/platform/test_container_logs.py` | 在整個測試 session 的最後執行：LiteLLM 容器 log 中沒有任何應用 key、master key 或 `sk-` 形式的 token |
 | `tests/e2e/test_grafana.py` | 以 Playwright 透過登入表單登入、用 kiosk 模式開啟儀表板並截圖：沒有任何面板顯示 No data、時間序列有實際資料點、面板不重疊也不超出畫面 |
 
 設計重點：
@@ -335,6 +336,7 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
 - 測試輸出也防止洩漏密鑰：
   - `env` fixture 的 repr 只顯示變數名稱；
   - `scripts/overnight/run_pytest.py` 寫出的測試紀錄，會先遮蔽所有 `.env` 的值。
+- key 只放在 `Authorization` header 或 JSON body，不放在 URL query：LiteLLM 的 access log 會記下完整的請求行。查詢某把 key 的資訊時，用該 key 本身呼叫 `GET /key/info`（不帶 `?key=`）。`tests/platform/test_container_logs.py` 在完整測試的最後掃描 `docker compose logs litellm`，確認沒有任何 key。
 - 只有 Gateway 與 Grafana 對 host 開放，而且只綁 `127.0.0.1`。Postgres、Redis、Ollama、Qdrant、Prometheus 預設都不對 host 開 port（除錯用的 override 見〈服務與 Port〉）。
 - LiteLLM 的 `/metrics/` 不需要驗證，Prometheus 因此不必持有 master key。也因為這樣，它只能從內網與本機 loopback 存取。
 - Qdrant 的資料與 collection API 都需要 `api-key`；只有健康檢查（`/healthz`、`/readyz`、`/livez`）不需驗證。
@@ -352,7 +354,6 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
   - 目前以 `xfail(strict=True)` 測試追蹤，上游修正後測試會提醒；沒有加防護。總並發仍受 Ollama 的 `OLLAMA_NUM_PARALLEL` 硬上限保護。
   - 重現腳本與 issue 草稿（尚未送出）在 [`docs/upstream/litellm-parallel-counter.md`](docs/upstream/litellm-parallel-counter.md)。
 - **spend log 不完整**：實測 LiteLLM 的 `LiteLLM_SpendLogs` 大量漏記 chat completion（embedding 大致完整），也曾有約 10 分鐘完全沒有寫入。Prometheus 指標中這些請求都有計入。調查紀錄在 [`reports/raw/incidents/spendlog-stall.txt`](reports/raw/incidents/spendlog-stall.txt)。
-- **完整 key 出現在 LiteLLM 的 access log**：`bootstrap_keys.py` 與部分測試用 `GET /key/info?key=…` 查詢 key，所以完整的 key 會出現在 LiteLLM 容器的 access log（`docker compose logs litellm`）。查看或分享 log 時要注意。
 
 **推論與監控**
 

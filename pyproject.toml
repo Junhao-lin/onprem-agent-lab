@@ -22,4 +22,5 @@ xfail_strict = true
 markers = [
     "llm: calls a model through the gateway or Ollama (slower, uses GPU)",
     "browser: drives a headless Chromium via Playwright (needs `playwright install chromium`)",
+    "run_last: moved to the end of the session (checks side effects of the whole run)",
 ]
