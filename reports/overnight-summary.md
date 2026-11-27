@@ -448,4 +448,3 @@ Codex 確認的部分：歷史中沒有密碼與完整 key、LiteLLM log 乾淨�
   - `tests/e2e`：**22 passed**（`reports/raw/codex-fix-e2e/pytest.txt`）。
   - 合計 184 passed, 1 xfailed。
 - 跑完測試後 `git status` 乾淨：e2e 截圖只寫進被忽略的 `latest/`。
-
