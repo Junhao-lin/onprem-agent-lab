@@ -2,7 +2,9 @@
 
 Logs in through the real login form (credentials from .env, never printed),
 opens platform-overview in kiosk mode, saves a screenshot under
-reports/raw/1.9/ and asserts that every panel actually shows data:
+reports/raw/1.9/latest/ (git-ignored; the committed reports/raw/1.9/
+platform-overview-kiosk.png is the one reviewed in the 1.9 report and is
+never overwritten) and asserts that every panel actually shows data:
 
   * no "No data" / "No data in range" text anywhere,
   * no stat tile showing the empty value (an en dash, U+2013),
@@ -37,7 +39,7 @@ DASH = json.loads((REPO / "infra/grafana/dashboards/platform-overview.json").rea
 PANELS = [p for p in DASH["panels"] if p["type"] != "row"]
 STAT_TITLES = [p["title"] for p in PANELS if p["type"] == "stat"]
 TS_TITLES = [p["title"] for p in PANELS if p["type"] == "timeseries"]
-OUT_DIR = REPO / "reports/raw/1.9"
+OUT_DIR = REPO / "reports/raw/1.9/latest"   # git-ignored: every run overwrites it
 VIEWPORT = {"width": 1600, "height": 1700}       # whole dashboard fits without scrolling
 EMPTY_TEXT = re.compile(r"\bno\s+data\b", re.I)   # "No data", "No data in range", ...
 EMPTY_STAT = {"–", "-", "N/A", "NaN", ""}          # – = en dash, Grafana's empty value

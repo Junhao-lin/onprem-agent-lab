@@ -29,6 +29,8 @@ models/
 *.safetensors
 
 # --- Load test & eval outputs ---
+# screenshots re-taken by every e2e run (the reviewed one is committed one level up)
+reports/raw/1.9/latest/
 loadtest/results/*
 !loadtest/results/.gitkeep
 eval/**/results/
