@@ -344,3 +344,30 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 - 依你的指示，因為改用 `ollama_chat/` 有效，所以**沒有**寫 docs/upstream 的 issue 草稿。
 - commit：`5927ff7`（設定、測試與文件），以及本段總結。
 
+### 6. 用 `ollama_chat/` 重跑 1.10 基準壓測
+- **執行方式**：
+  - 指令是 `python loadtest/bench.py --restart-backend`，並發 1/2/4/8/16，每一級開始前都重啟 Ollama 並暖機。
+  - 使用臨時 key `loadtest-1795760885`。結束後已刪除並確認：腳本結束碼為 0，刪除失敗時會是 3。
+  - 原始資料在 `reports/raw/1.10/ollama-chat-restart/`。
+- **報告**：
+  - 新增 `docs/benchmarks/2026-11-27-ollama-chat.md`，內含完整結果與「provider 變更前後比較」。
+  - 舊的 `2026-11-26-baseline.md` 開頭加註「目前數字以新報告為準」，原內容未改。
+  - README 的基準表已換成新數字，並附上結論。
+- **比較**（舊為 `/v1`，新為 `ollama_chat`）：
+  - **總吞吐**與**每請求 tok/s**：每一級都在 10% 以內，但一致偏低 1–6.5%，沒有任一級變高。
+  - 可能原因（未驗證）：
+    - gateway 要把 Ollama 原生的 NDJSON 串流逐 chunk 轉成 OpenAI 格式；
+    - 測試機的狀態不同。
+  - 區分方法：在內網直接對 Ollama 的 `/v1` 與 `/api/chat` 量 decode 速度，繞過 gateway。這次沒有做。
+  - **TTFT p95**：
+    - 並發 2 為 −12.5%、並發 4 為 +10.8%，超過 10%。
+    - 但兩者方向相反，絕對值只有 −11 ms 與 +15 ms。每級只有 8／16 筆，p95 幾乎就是最慢的那一筆，同一級的 p50 只差 +2% 與 +1%。判斷為雜訊。
+    - 並發 16 的 TTFT +7%，來自 decode 變慢造成的排隊時間。
+  - **結論：已用新設定重測，結果一致**。飽和點仍是並發 4，容量規劃與 key 的並發上限不變。
+- **測試**：
+  - `test_benchmark_table_matches_raw_baseline` 改為比對新的原始資料。
+  - 新增 `test_provider_comparison_matches_both_raw_runs`：比較表的新舊數字與 Δ 都必須和兩份 `summary.csv` 一致。反向驗證：改錯報告中一個 Δ 時，測試會失敗。
+- **完整 pytest：174 passed, 1 xfailed**（`reports/raw/bench-ollama-chat/pytest.txt`）。
+  - 第一次跑有 1 個失敗：README 表格已換成新數字，但測試仍比對舊資料。修正測試後通過。
+- **沒有重跑**：`repro_degradation.py`（超載後的 c=2 退化）。README 已註明這部分仍是 `/v1` 的數字。要不要重跑，由你決定。
+

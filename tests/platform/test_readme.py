@@ -73,10 +73,19 @@ def test_no_real_key_material(env):
     assert leaked == [], leaked
 
 
+BENCH_OLD = REPO / "reports/raw/1.10/baseline-restart"      # openai/ via Ollama /v1
+BENCH_CURRENT = REPO / "reports/raw/1.10/ollama-chat-restart"  # ollama_chat/ via /api/chat
+BENCH_COMPARE_DOC = REPO / "docs/benchmarks/2026-11-27-ollama-chat.md"
+
+
+def _bench_summary(run_dir):
+    return {int(r["concurrency"]): r for r in csv.DictReader(
+        open(run_dir / "summary.csv", encoding="utf-8"))}
+
+
 def test_benchmark_table_matches_raw_baseline():
-    """Every row of the README table equals reports/raw/1.10/baseline-restart/summary.csv."""
-    raw = {int(r["concurrency"]): r for r in csv.DictReader(
-        open(REPO / "reports/raw/1.10/baseline-restart/summary.csv", encoding="utf-8"))}
+    """Every row of the README table equals the current run's summary.csv."""
+    raw = _bench_summary(BENCH_CURRENT)
     rows = re.findall(r"^\| (\d+) \| ([\d.]+) s \| ([\d.]+) s \| ([\d.]+) s \| ([\d.]+) \| ([\d.]+) \|$",
                       README, re.M)
     assert [int(r[0]) for r in rows] == sorted(raw), rows
@@ -86,8 +95,31 @@ def test_benchmark_table_matches_raw_baseline():
         assert lat95 == f"{float(r['latency_p95_s']):.2f}", c
         assert dec == f"{float(r['decode_tps_p50']):.1f}" and thr == f"{float(r['throughput_tps']):.1f}", c
     # conditions stated next to the table match the raw run
-    env = __import__("json").loads((REPO / "reports/raw/1.10/baseline-restart/environment.json").read_text(encoding="utf-8"))
+    env = __import__("json").loads((BENCH_CURRENT / "environment.json").read_text(encoding="utf-8"))
     assert f"max_tokens {env['max_tokens']}" in README and env["backend_model"] in README
+
+
+def test_provider_comparison_matches_both_raw_runs():
+    """The before/after table in the re-run report equals both summary.csv files, incl. deltas."""
+    old, new = _bench_summary(BENCH_OLD), _bench_summary(BENCH_CURRENT)
+    doc = BENCH_COMPARE_DOC.read_text(encoding="utf-8").replace("**", "")
+    num = r"([−+]?[\d.]+)"
+    rows = re.findall(rf"^\| (\d+) \| {num} s \| {num} s \| {num} % \| {num} \| {num} \| {num} % "
+                      rf"\| {num} \| {num} \| {num} % \|$", doc, re.M)
+    assert [int(r[0]) for r in rows] == sorted(old) == sorted(new), rows
+
+    def delta(a, b):
+        return f"{(b - a) / a * 100:+.1f}".replace("-", "−")
+
+    for c, *cells in rows:
+        o, n = old[int(c)], new[int(c)]
+        expected = []
+        for col, fmt in (("ttft_p95_s", ".3f"), ("decode_tps_p50", ".1f"), ("throughput_tps", ".1f")):
+            a, b = float(o[col]), float(n[col])
+            expected += [f"{a:{fmt}}", f"{b:{fmt}}", delta(a, b)]
+        assert cells == expected, (c, cells, expected)
+    # the README links the report and states the conclusion
+    assert BENCH_COMPARE_DOC.name in README and "已用新設定重測，結果一致" in README
 
 
 def test_ops_risk_numbers_match_degradation_data():

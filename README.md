@@ -308,18 +308,20 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
 - 預設會建立臨時 key（`loadtest-*`，無限額）。結束時會刪除這把 key，並確認刪除成功；刪除失敗時以結束碼 3 回報。這個預設量的是平台容量，不是應用配額。
 - `--restart-backend` 會在每個並發等級開始前重啟 Ollama 並暖機，讓每一級都從相同狀態開始（原因見下方）。
 
-**第一版基準**（RTX 4070 Ti、qwen2.5:7b-instruct、`OLLAMA_NUM_PARALLEL=4`、max_tokens 256）。完整報告、方法與原始資料見 [`docs/benchmarks/2026-11-26-baseline.md`](docs/benchmarks/2026-11-26-baseline.md)：
+**目前的基準**（2026-11-27，chat 走 `ollama_chat/`；RTX 4070 Ti、qwen2.5:7b-instruct、`OLLAMA_NUM_PARALLEL=4`、max_tokens 256）。完整報告與「provider 變更前後比較」見 [`docs/benchmarks/2026-11-27-ollama-chat.md`](docs/benchmarks/2026-11-27-ollama-chat.md)；第一版基準（經 `/v1`）與方法說明見 [`docs/benchmarks/2026-11-26-baseline.md`](docs/benchmarks/2026-11-26-baseline.md)：
 
 | 並發 | TTFT p50 | TTFT p95 | 延遲 p95 | 每請求 tok/s | 總吞吐 tok/s |
 |---:|---:|---:|---:|---:|---:|
-| 1 | 0.047 s | 0.056 s | 3.04 s | 86.2 | 85.3 |
-| 2 | 0.068 s | 0.086 s | 3.23 s | 81.8 | 161.0 |
-| 4 | 0.119 s | 0.132 s | 3.61 s | 74.5 | 288.6 |
-| 8 | 3.742 s | 3.823 s | 7.47 s | 71.0 | 280.4 |
-| 16 | 10.699 s | 10.769 s | 14.25 s | 73.3 | 288.4 |
+| 1 | 0.039 s | 0.054 s | 3.15 s | 82.5 | 81.7 |
+| 2 | 0.070 s | 0.075 s | 3.37 s | 77.3 | 152.1 |
+| 4 | 0.121 s | 0.147 s | 3.78 s | 71.1 | 275.5 |
+| 8 | 3.742 s | 3.780 s | 7.41 s | 70.3 | 277.5 |
+| 16 | 11.458 s | 11.569 s | 15.24 s | 68.5 | 269.8 |
+
+- **已用新設定重測，結果一致**：和改用 `ollama_chat/` 之前（經 `/v1`）相比，每一級的總吞吐與每請求 tok/s 差異都在 10% 以內，但一致偏低 1–6.5%，可能是 gateway 轉換原生串流的成本（未驗證）。TTFT p95 在並發 2／4 的差異超過 10%，但方向相反，絕對值只有 11–15 ms，判斷為小樣本雜訊。飽和點與容量規劃不變。
 
 - **吞吐量在並發 4 時飽和**，4 剛好就是 Ollama 的平行槽數。再增加並發只會拉長排隊時間，TTFT 隨之線性上升。因此兩把應用 key 的並發上限加總設為 4，超量時由 Gateway 立即回 429。
-- **維運風險**：在兩輪實測中，Ollama 0.40.18 處理過一次超過槽位數的並發後，2 個同時進行的請求吞吐量都下降 46–53%（約 165 → 77–89 tok/s），直到重啟 Ollama 才恢復。退化不一定立即出現：有一輪剛超載時只有部分請求變慢。並發 1 與並發 4 不受影響。實測數字與緩解選項見基準報告的〈Operational risk〉一節。
+- **維運風險**（經 `/v1` 量測，換 provider 後未重跑）：在兩輪實測中，Ollama 0.40.18 處理過一次超過槽位數的並發後，2 個同時進行的請求吞吐量都下降 46–53%（約 165 → 77–89 tok/s），直到重啟 Ollama 才恢復。退化不一定立即出現：有一輪剛超載時只有部分請求變慢。並發 1 與並發 4 不受影響。實測數字與緩解選項見基準報告的〈Operational risk〉一節。
 - **測試條件的限制**：
   - 測試機是同時在跑其他程式的桌機；
   - 每一級只跑一輪，樣本也小；
@@ -353,7 +355,7 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
   - 計數的 TTL 為 60 秒，每次更新都會重設。
   - 目前以 `xfail(strict=True)` 測試追蹤，上游修正後測試會提醒；沒有加防護。總並發仍受 Ollama 的 `OLLAMA_NUM_PARALLEL` 硬上限保護。
   - 重現腳本與 issue 草稿（尚未送出）在 [`docs/upstream/litellm-parallel-counter.md`](docs/upstream/litellm-parallel-counter.md)。
-- **串流 chunk 的 id 不一致（為修正 spend log 所付出的代價）**：Ollama 的 OpenAI 相容 API（`/v1`）回傳的 id 只有 `chatcmpl-<0–999>`，LiteLLM 拿它當 `LiteLLM_SpendLogs` 的主鍵，並以 `skip_duplicates` 寫入，所以 id 重複的 chat 紀錄會被靜默丟掉（實測一度只記到約 12%）。已把 `chat-default` 改用 LiteLLM 的 `ollama_chat/` provider（Ollama 原生 `/api/chat`），id 改成 UUID，每筆 chat 都會寫入，並由 `test_every_chat_has_its_own_spend_log_row` 檢查。副作用：串流回應中**每個 chunk 的 id 都不同**，不符合 OpenAI 規格（同一串流應共用一個 id）；只依 id 合併 chunk 的 client 會出錯。換成 vLLM 後改回 `openai/` 即可同時解決兩者。〈壓測與基準結果〉的數字是改用 `ollama_chat/` 之前、經 `/v1` 量測的。調查與重現在 [`reports/raw/spendlog/FINDINGS.md`](reports/raw/spendlog/FINDINGS.md)；昨晚另觀察到約 10 分鐘完全沒有寫入，見 [`reports/raw/incidents/spendlog-stall.txt`](reports/raw/incidents/spendlog-stall.txt)。
+- **串流 chunk 的 id 不一致（為修正 spend log 所付出的代價）**：Ollama 的 OpenAI 相容 API（`/v1`）回傳的 id 只有 `chatcmpl-<0–999>`，LiteLLM 拿它當 `LiteLLM_SpendLogs` 的主鍵，並以 `skip_duplicates` 寫入，所以 id 重複的 chat 紀錄會被靜默丟掉（實測一度只記到約 12%）。已把 `chat-default` 改用 LiteLLM 的 `ollama_chat/` provider（Ollama 原生 `/api/chat`），id 改成 UUID，每筆 chat 都會寫入，並由 `test_every_chat_has_its_own_spend_log_row` 檢查。副作用：串流回應中**每個 chunk 的 id 都不同**，不符合 OpenAI 規格（同一串流應共用一個 id）；只依 id 合併 chunk 的 client 會出錯。換成 vLLM 後改回 `openai/` 即可同時解決兩者。〈壓測與基準結果〉已用 `ollama_chat/` 重測，結果與 `/v1` 一致（吞吐差異在 10% 以內）。調查與重現在 [`reports/raw/spendlog/FINDINGS.md`](reports/raw/spendlog/FINDINGS.md)；昨晚另觀察到約 10 分鐘完全沒有寫入，見 [`reports/raw/incidents/spendlog-stall.txt`](reports/raw/incidents/spendlog-stall.txt)。
 
 **推論與監控**
 
