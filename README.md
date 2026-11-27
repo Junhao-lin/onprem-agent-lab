@@ -2,16 +2,27 @@
 
 地端 LLM 平台，以及跑在上面的兩個應用：攝影機產品客服 RAG、新人教學 Agent。
 
-> 🚧 開發中。目前進度：**Phase 1（平台）完成**。Phase 2（客服 RAG）、Phase 3（教學 Agent）尚未開始。
+> 目前進度：**Phase 1（平台）完成**。Phase 2（客服 RAG）、Phase 3（教學 Agent）尚未開始。
+
+## 摘要
+
+**一句話**：在單機上用 LiteLLM Gateway 讓多個應用共用一張 GPU。每個應用一把 key，各有 rpm／tpm／並發上限，超量直接回 429。平台附監控、壓測與自動化驗證。
+
+**關鍵數字**（RTX 4070 Ti、qwen2.5:7b-instruct、max_tokens 256，見〈[壓測與基準結果](#壓測與基準結果)〉）：
+
+- **並發 4 即飽和**：等於 Ollama 的平行槽數 4。超過之後只會拉長排隊時間。
+- **總吞吐約 275 tok/s**（並發 4）。
+- **TTFT p95 0.15 s**（並發 4 以內）。
+
+**驗證中的發現**（詳見〈[驗證中的發現](#驗證中的發現)〉）：
+
+- **限流計數沒有共享到 Redis**：只設定 router 的 Redis 時，LiteLLM 1.83 仍把計數放在各 worker 的記憶體。已修正設定，並以測試確認計數寫進 Redis。
+- **LiteLLM 1.83 的並發計數會被帶偏**：被拒的請求會讓計數加減，可能暫時超出並發上限，或誤回 429。這是上游 bug，目前以 `xfail(strict)` 測試追蹤。
+- **Ollama 超載一次後，吞吐下降約一半**：2 個並發請求的總吞吐從約 160 降到約 76 tok/s，直到重啟 Ollama 才恢復。
 
 ![Platform overview 儀表板：只有兩把正式應用 key 的一般流量時的畫面](docs/images/dashboard.png)
 
-<sub>截圖說明：
-- **時間範圍**：2026-11-27 15:23:32–15:30:32（UTC+8），共 7 分鐘。時間軸使用瀏覽器時區（UTC+8）。
-- **流量來源**：只有 `loadtest/app_traffic.py` 以兩把正式 key（`support-rag`、`onboarding-agent`）送出的一般流量。速率在各自限額內，150 + 150 輪全部回 200。這段流量從 15:22:08 起跑 10 分鐘，截圖範圍完全落在其中。
-- **範圍內沒有測試、壓測或 master key 的流量**，也沒有失敗的請求。依據是截圖當下對 Prometheus 的查詢結果。所以錯誤率 0.0%，p95 延遲反映一般 chat 回應的長度。
-- **Qdrant 面板沒有資料**：RAG 應用尚未實作，沒有應用呼叫 Qdrant；Collections／Vectors 為 0 是實際值。
-- 證據：[`reports/evidence/dashboard/`](reports/evidence/dashboard/)（流量輸出、截圖輸出、時間窗內的流量查詢）。</sub>
+<sub>Platform overview 儀表板，2026-11-27 15:23–15:30（UTC+8）。時間範圍內只有兩把正式 key 在限額內的一般流量，沒有測試或壓測流量；Qdrant 面板閒置，因為還沒有應用使用它。資料來源與重拍方式見 [`docs/dashboard-screenshot.md`](docs/dashboard-screenshot.md)。</sub>
 
 ## 目錄
 
@@ -22,10 +33,12 @@
 5. [可觀測性](#可觀測性)
 6. [測試](#測試)
 7. [壓測與基準結果](#壓測與基準結果)
-8. [安全性](#安全性)
-9. [已知限制](#已知限制)
-10. [Roadmap](#roadmap)
-11. [授權](#授權)
+8. [驗證中的發現](#驗證中的發現)
+9. [開發流程](#開發流程)
+10. [安全性](#安全性)
+11. [已知限制](#已知限制)
+12. [Roadmap](#roadmap)
+13. [授權](#授權)
 
 ## 專案簡介
 
@@ -35,10 +48,7 @@
 - **LLM Gateway**：使用 LiteLLM Proxy。每個應用一把 virtual key，各自設定 rpm、tpm 與並發上限；超過上限時直接回 429，不會在 GPU 前面無限排隊。
 - **穩定別名**：應用只呼叫 `chat-default`、`embed-default` 這兩個別名。換後端或換模型時，應用程式碼不用改。
 - **其他元件**：Qdrant 向量庫；Prometheus + Grafana 監控，儀表板以程式碼定義（dashboards as code）。
-- **品質保證**：
-  - 平台的每一項要求都有 pytest 驗證，包括瀏覽器端的儀表板檢查；
-  - 有壓測工具與基準報告；
-  - 每個階段都另外由獨立的審閱者（Codex）驗證，報告在 [`reports/verification/`](reports/verification/)。
+- **品質保證**：平台的每一項要求都有 pytest 驗證，包括瀏覽器端的儀表板檢查；每個階段另由獨立的審閱者驗證（見〈[開發流程](#開發流程)〉）。
 
 選擇地端的理由：
 - **資料不出網**：客服知識庫與內部教材留在本機。
@@ -74,7 +84,7 @@ flowchart LR
 ```
 
 - **對外只開兩個 port，而且都只綁 `127.0.0.1`**：Gateway（4000）與 Grafana（3000）。其他服務只在內部網路 `oal-backend` 上。應用不能直接連 Ollama，所有推論都要經過 Gateway 的限流。
-- **並發預算**：Ollama 有 `OLLAMA_NUM_PARALLEL=4` 個平行處理槽位。兩把應用 key 的並發上限是 2 + 2 = 4，加總剛好等於槽位數：單一 key 同時最多 2 個請求，另一個應用至少保有 2 個槽位。這是請求數的上限，不是 GPU 資源配額；計數漂移時可能暫時失準，見〈已知限制〉。壓測證實吞吐量在並發 4 時就已飽和，見〈壓測與基準結果〉。
+- **並發預算**：設計預算為 4，等於 Ollama 的 `OLLAMA_NUM_PARALLEL=4`，由兩把應用 key 各分 2。這個預算受上游 bug 影響可能偏移（見〈[已知限制](#已知限制)〉）。壓測顯示吞吐量在並發 4 時飽和，見〈[壓測與基準結果](#壓測與基準結果)〉。
 - **設定都放在版本控制**：
   - [`docker-compose.yml`](docker-compose.yml)：服務定義；可用 `docker-compose.gpu.yml` 啟用 GPU、用 `docker-compose.debug.yml` 開放除錯用 port；
   - [`infra/litellm/config.yaml`](infra/litellm/config.yaml)：模型別名；
@@ -132,7 +142,7 @@ python scripts/bootstrap_keys.py --rotate   # 需要時強制換新 key
 
 **4. 確認可用**
 
-經 Gateway 呼叫模型。兩種寫法都已在本機實測，回應的 `model` 為 `chat-default`。
+經 Gateway 呼叫模型，回應的 `model` 應為 `chat-default`。
 
 bash（Linux、macOS、Windows 的 Git Bash）：
 
@@ -213,7 +223,7 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile platfor
 | `onboarding-agent` | chat-default | 30 | 60k | 2 |
 
 - 兩個應用的並發上限加總等於 Ollama 的 `OLLAMA_NUM_PARALLEL`（4）：單一 key 同時最多 2 個請求，另一個應用至少保有 2 個槽位。超額的請求由 Gateway 直接回 429。例外見〈已知限制〉中的並發計數漂移。
-- 限流計數存在 Redis，可以跨 worker 與 replica 共享。為此啟用了 LiteLLM 的 Redis cache，但設成 `mode: default_off`，因此 **LLM 回應不會被快取**，除非請求明確帶 `cache: {"use-cache": true}`。
+- 限流計數存在 Redis，可以跨 worker 與 replica 共享（見〈[驗證中的發現](#驗證中的發現)〉第 1 項）。為此啟用了 LiteLLM 的 Redis cache，但設成 `mode: default_off`，因此 **LLM 回應不會被快取**，除非請求明確帶 `cache: {"use-cache": true}`。
 
 ## 可觀測性
 
@@ -247,18 +257,8 @@ python infra/grafana/build_dashboards.py --check   # 給 CI / pytest 用：JSON 
 - 每個面板只有一個 y 軸；圖例一律顯示應用名稱，不只靠顏色辨識。
 - `App` 變數自動排除三類流量：測試用的臨時 key（`pytest-tmp-*`）、壓測用的臨時 key（`loadtest-*`），以及 master key 的流量（`None`）。
 - Grafana 預設深色主題，因為配色是以深色底驗證的。
-- Ollama 本身不提供 Prometheus 指標；推論端的指標要等換成 vLLM 後才補齊。
 
-重新產生 README 截圖的步驟：
-
-```bash
-python loadtest/app_traffic.py --duration 600                  # 正式 key 的一般流量；期間不要跑測試或壓測
-# 約 8 分鐘後（另開一個終端機），截圖範圍要完全落在流量期間：
-python -m uv run python scripts/screenshot_dashboard.py --range 7m --allow-idle-qdrant
-python scripts/dashboard_window_traffic.py --range 7m          # 確認範圍內只有正式 key、沒有失敗
-```
-
-`screenshot_dashboard.py` 會用 Playwright 的 kiosk 模式截圖。只要有任何面板沒有資料，就不會寫入 `docs/images/dashboard.png`。`--allow-idle-qdrant` 只豁免 Qdrant 面板，並會列出被豁免的面板名稱。`dashboard_window_traffic.py` 查詢 Prometheus：範圍內若有正式 key 以外的流量、任何失敗或 Qdrant 呼叫，就以結束碼 1 回報。
+讀數看起來奇怪時（例如面板短暫沒有資料、In-flight 顯示 1），先看 [`docs/observability-notes.md`](docs/observability-notes.md)。README 截圖的重拍步驟在 [`docs/dashboard-screenshot.md`](docs/dashboard-screenshot.md)。
 
 ## 測試
 
@@ -302,7 +302,6 @@ python -m uv run pytest tests/e2e                # 只跑 Grafana 瀏覽器檢�
 - **內部服務**沒有 host port。測試會啟動臨時的 probe 容器（`python:3.12.16-alpine3.24`），在 `oal-backend` 網路內發 HTTP 請求；請求內容（含密鑰）經 stdin 傳入，不會出現在命令列。
 - **限流測試**使用臨時 key（前綴 `pytest-tmp-`，限額極小），測完就刪除。應用的正式 key 只讀不改。
 - **測試語言**：一律用 Python 撰寫，避免不同 shell 的引號差異。
-- **驗證報告**：每一步的獨立驗證報告在 [`reports/verification/`](reports/verification/)，證據在 [`reports/evidence/`](reports/evidence/)，包括測試輸出、截圖與壓測原始資料，都已遮罩。
 
 ## 壓測與基準結果
 
@@ -310,7 +309,7 @@ python -m uv run pytest tests/e2e                # 只跑 Grafana 瀏覽器檢�
 python loadtest/bench.py --restart-backend      # 並發 1,2,4,8,16；結果寫入 loadtest/results/<時間>/（不進版控）
 python loadtest/bench.py -c 1,4 -n 8 --max-tokens 64   # 快速版
 python loadtest/bench.py --key-env SUPPORT_RAG_LLM_KEY # 套用應用的限額（可以看到 429）
-python loadtest/repro_degradation.py            # 重現「超載後吞吐退化」（見下方維運風險）
+python loadtest/repro_degradation.py            # 重現「超載後吞吐下降」（見〈驗證中的發現〉第 3 項）
 ```
 
 - 所有請求都以串流方式經過 Gateway，在客戶端量測：
@@ -320,7 +319,7 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
   - 整體吞吐量。
 - p50／p95 只計算成功的請求；429 與其他錯誤另外計數。
 - 預設會建立臨時 key（`loadtest-*`，無限額）。結束時會刪除這把 key，並確認刪除成功；刪除失敗時以結束碼 3 回報。這個預設量的是平台容量，不是應用配額。
-- `--restart-backend` 會在每個並發等級開始前重啟 Ollama 並暖機，讓每一級都從相同狀態開始（原因見下方）。
+- `--restart-backend` 會在每個並發等級開始前重啟 Ollama 並暖機，讓每一級都從相同狀態開始（原因見〈驗證中的發現〉第 3 項）。
 
 **目前的基準**（2026-11-27，chat 走 `ollama_chat/`；RTX 4070 Ti、qwen2.5:7b-instruct、`OLLAMA_NUM_PARALLEL=4`、max_tokens 256）。完整報告與「provider 變更前後比較」見 [`docs/benchmarks/2026-11-27-ollama-chat.md`](docs/benchmarks/2026-11-27-ollama-chat.md)；第一版基準（經 `/v1`）與方法說明見 [`docs/benchmarks/2026-11-26-baseline.md`](docs/benchmarks/2026-11-26-baseline.md)：
 
@@ -332,18 +331,71 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
 | 8 | 3.742 s | 3.780 s | 7.41 s | 70.3 | 277.5 |
 | 16 | 11.458 s | 11.569 s | 15.24 s | 68.5 | 269.8 |
 
-- **和改用 `ollama_chat/` 之前（經 `/v1`）相比**：差異在 10% 以內、飽和點仍為並發 4；但新設定每一級吞吐皆略低 1–6.5%，方向一致，推測為 LiteLLM 轉換 Ollama 原生串流格式的開銷，尚未驗證（每種設定各只跑一輪）。TTFT p95 在並發 2／4 的差異超過 10%，但方向相反，絕對值只有 11–15 ms，判斷為小樣本雜訊。
-
 - **吞吐量在並發 4 時飽和**，4 剛好就是 Ollama 的平行槽數。再增加並發只會拉長排隊時間，TTFT 隨之線性上升。因此兩把應用 key 的並發上限加總設為 4，超量時由 Gateway 立即回 429。
-- **維運風險**：Ollama 0.40.18 處理過一次超過槽位數的並發後，2 個同時進行的請求吞吐量會大幅下降，直到重啟 Ollama 才恢復。兩種設定各實測兩輪：
-  - `/v1`（舊）：下降 46–53%（約 165 → 77–89 tok/s）。退化不一定立即出現：有一輪剛超載時只有部分請求變慢。
-  - `ollama_chat/`（目前）：下降 52–53%（約 159–161 → 75–77 tok/s）。兩輪都是超載後立即全部變慢。
-  - 並發 1 與並發 4 都不受影響。所以這個問題與 gateway 走哪一個 Ollama API 無關。
-  - 並列數字見 [`docs/benchmarks/2026-11-27-ollama-chat.md`](docs/benchmarks/2026-11-27-ollama-chat.md)；緩解選項見基準報告的〈Operational risk〉一節。
+- **和改用 `ollama_chat/` 之前（經 `/v1`）相比**：差異在 10% 以內、飽和點仍為並發 4；但新設定每一級吞吐皆略低 1–6.5%，方向一致，推測為 LiteLLM 轉換 Ollama 原生串流格式的開銷，尚未驗證（每種設定各只跑一輪）。TTFT p95 在並發 2／4 的差異超過 10%，但方向相反，絕對值只有 11–15 ms，判斷為小樣本雜訊。
 - **測試條件的限制**：
   - 測試機是同時在跑其他程式的桌機；
   - 每一級只跑一輪，樣本也小；
   - 所有回答都被 `max_tokens=256` 截斷。
+
+## 驗證中的發現
+
+平台在驗證過程中發現的三個問題。每一項都列出現象、如何定位、處理方式與對應的測試。
+
+### 1. 限流計數沒有共享到 Redis
+
+- **現象**：只在 `router_settings` 設定 Redis 時，LiteLLM 1.83 的 rpm／tpm／並發計數仍放在各 worker 的記憶體裡。多 worker 或多 replica 時，每個程序各算各的，限額實際上會被放大。
+- **如何定位**：驗證 1.5 時，送出請求後 Redis 裡一個 key 都沒有（`dbsize=0`）。接著在容器內搜尋 LiteLLM 1.83 的原始碼，發現限流器只透過 `litellm.cache` 取得 Redis，`router_settings` 的 Redis 只給 router 自己用。
+- **處理方式**：在 [`infra/litellm/config.yaml`](infra/litellm/config.yaml) 啟用 Redis cache，讓計數寫進 Redis。同時設成 `mode: default_off`，所以 LLM 回應預設不會被快取。
+- **對應測試**：
+  - `tests/platform/test_virtual_keys.py::test_limiter_counters_in_redis`：送出請求後，Redis 中要有這把 key 的計數；
+  - `test_responses_not_cached_by_default`：同樣的請求送兩次，回應不能是快取。
+
+### 2. LiteLLM 1.83 的並發計數錯誤（上游 bug）
+
+- **現象**：在 LiteLLM 1.83.14 上，被拒絕的請求會改變 key 的並發計數，但不會反向恢復：
+  - 「模型不在白名單」的 401，每次讓計數 −1。實測計數到 −3 後，上限 2 的 key 同時 3 條串流都被接受。
+  - 格式錯誤的 400，每次讓計數 +1。累積到 +2 之後，即使沒有任何請求在進行，正常請求也會被回 429。
+  - 計數的 TTL 為 60 秒，每次更新都會重設。
+- **如何定位**：在 1.9 調查儀表板的過程中，讀到 `onboarding-agent` 在 Redis 的並發計數是 −2；實測佔住 2 條串流後，第 3 個請求仍回 200。接著把計數歸零，用臨時 key 逐一送出各種會被拒的請求，在每一步讀取計數與 TTL，找出 401 與 400 兩種漂移方向。
+- **處理方式**：
+  - 尚未修正，等上游處理；
+  - 總並發仍受 Ollama `OLLAMA_NUM_PARALLEL=4` 的硬上限保護；
+  - 重現腳本與分析在 [`docs/upstream/litellm-parallel-counter.md`](docs/upstream/litellm-parallel-counter.md)。
+- **對應測試**：
+  - `tests/platform/test_dashboards.py::test_auth_rejection_does_not_skew_parallel_counter`：標為 `xfail(strict=True)`，上游修正後會轉為失敗，提醒我們更新；
+  - `test_auth_rejections_are_not_metered`：釘住「401 不計入指標」這個相關行為。
+
+### 3. Ollama 超載後吞吐下降約一半
+
+- **現象**：Ollama 0.40.18 處理過一次超過槽位數的並發後，2 個同時進行的請求吞吐量會大幅下降，直到重啟 Ollama 才恢復。兩種設定各實測兩輪：
+  - `/v1`（舊）：下降 46–53%（約 165 → 77–89 tok/s）。退化不一定立即出現：有一輪剛超載時只有部分請求變慢。
+  - `ollama_chat/`（目前）：下降 52–53%（約 159–161 → 75–77 tok/s）。兩輪都是超載後立即全部變慢。
+  - 並發 1 與並發 4 都不受影響。所以這個問題與 gateway 走哪一個 Ollama API 無關。
+- **如何定位**：
+  - 第一版壓測把各並發等級連續執行，並發 2 的數字明顯偏低，而且無法重現。
+  - 改用 `loadtest/repro_degradation.py` 固定順序重現：重啟 → 並發 2 → 並發 8 超載 → 並發 2 ×2 → 並發 4 → 並發 1 → 重啟後並發 2。
+  - 結果顯示，同一個未重啟的 LiteLLM，只重啟 Ollama 就完全恢復，所以造成變慢的狀態在 Ollama 程序內。
+- **處理方式**：
+  - 壓測改用 `--restart-backend`，讓每一級都從相同狀態開始；
+  - 兩把應用 key 的並發上限加總維持在 4，避免一般流量讓 Ollama 超載；
+  - 偵測告警與定期重啟等緩解選項尚未實作，見基準報告的〈Operational risk〉一節；
+  - 換成 vLLM 後用同一支腳本重測。
+  - 並列數字見 [`docs/benchmarks/2026-11-27-ollama-chat.md`](docs/benchmarks/2026-11-27-ollama-chat.md)。
+- **對應測試**：這個現象需要重啟 Ollama、每次數分鐘，沒有做成自動化的行為測試，改用 `repro_degradation.py` 重現。文件中的數字由以下測試和原始資料比對：
+  - `tests/platform/test_readme.py::test_ops_risk_numbers_match_degradation_data`
+  - `test_degradation_comparison_matches_both_raw_runs`
+
+  並發預算等於槽位數，由 `tests/platform/test_virtual_keys.py::test_parallel_budget_matches_ollama_capacity` 檢查。
+
+## 開發流程
+
+- **開發**：以 Claude Code 實作，每完成一個小步驟就 commit。專案規則寫在 [`CLAUDE.md`](CLAUDE.md)。
+- **獨立驗證**：每個階段完成後，交給 Codex 以唯讀模式獨立驗證（[`scripts/overnight/run_codex.py`](scripts/overnight/run_codex.py)）。不通過就修正後再驗，直到通過。
+- **報告存放位置**：
+  - 驗證報告在 [`reports/verification/`](reports/verification/)，每個階段一份，包含 Codex 的回覆與修正對照；
+  - 測試輸出、截圖、壓測原始資料等證據，遮罩後放在 [`reports/evidence/`](reports/evidence/)；
+  - Agent 的原始對話紀錄只留在本機，不進版控。
 
 ## 安全性
 
@@ -368,26 +420,25 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
 
 ## 已知限制
 
+以下只列尚未解決的部分。已定位的問題與處理方式見〈[驗證中的發現](#驗證中的發現)〉。
+
 **Gateway 與指標**
 
+- **並發計數會漂移（上游 bug，未修正）**：被拒的請求會讓 LiteLLM 1.83 的並發計數偏移，可能暫時超出或誤擋並發上限，所以實際並發預算可能偏離 4。總並發仍受 Ollama 的硬上限保護。詳見〈驗證中的發現〉第 2 項。
 - **`/metrics/` 不需驗證**：LiteLLM 的 `/metrics/` 目前只靠網路隔離保護（只有內網與 `127.0.0.1` 能連到）。之後若加上 Nginx 等反向代理對外開放，**必須在代理層阻擋外部存取 `/metrics`**。
-- **認證階段被拒的請求不計量**：LiteLLM 1.83 不會把 401（key 錯誤、模型不在白名單）記入指標，所以 Error rate 與 Failed requests 面板看不到這類錯誤。有測試確認這個行為。另外，格式錯誤的請求雖然回 400，在指標中的狀態卻記成 `None`。
-- **並發限流計數會漂移（上游 bug）**：在 LiteLLM 1.83.14 上：
-  - 「模型不在白名單」的 401，每次讓該 key 的並發計數 −1。實測計數到 −3 後，同時 3 條串流都被接受，超過上限 2。
-  - 格式錯誤的 400，每次讓計數 +1。累積到 +2 之後，即使沒有任何請求在進行，正常請求也會被回 429。
-  - 計數的 TTL 為 60 秒，每次更新都會重設。
-  - 目前以 `xfail(strict=True)` 測試追蹤，上游修正後測試會提醒；沒有加防護。總並發仍受 Ollama 的 `OLLAMA_NUM_PARALLEL` 硬上限保護。
-  - 重現腳本與 issue 草稿（尚未送出）在 [`docs/upstream/litellm-parallel-counter.md`](docs/upstream/litellm-parallel-counter.md)。
-- **串流 chunk 的 id 不一致（為修正 spend log 所付出的代價）**：Ollama 的 OpenAI 相容 API（`/v1`）回傳的 id 只有 `chatcmpl-<0–999>`，LiteLLM 拿它當 `LiteLLM_SpendLogs` 的主鍵，並以 `skip_duplicates` 寫入，所以 id 重複的 chat 紀錄會被靜默丟掉（實測一度只記到約 12%）。已把 `chat-default` 改用 LiteLLM 的 `ollama_chat/` provider（Ollama 原生 `/api/chat`），id 改成 UUID，每筆 chat 都會寫入，並由 `test_every_chat_has_its_own_spend_log_row` 檢查。副作用：串流回應中**每個 chunk 的 id 都不同**，不符合 OpenAI 規格（同一串流應共用一個 id）；只依 id 合併 chunk 的 client 會出錯。換成 vLLM 後改回 `openai/` 即可同時解決兩者。〈壓測與基準結果〉已用 `ollama_chat/` 重測：差異在 10% 以內，但每一級吞吐皆略低 1–6.5%（見該節）。調查與重現在 [`reports/evidence/spendlog/FINDINGS.md`](reports/evidence/spendlog/FINDINGS.md)；昨晚另觀察到約 10 分鐘完全沒有寫入，見 [`reports/evidence/incidents/spendlog-stall.txt`](reports/evidence/incidents/spendlog-stall.txt)。
+- **認證階段被拒的請求不計量**：LiteLLM 1.83 不會把 401（key 錯誤、模型不在白名單）記入指標，所以 Error rate 與 Failed requests 面板看不到這類錯誤。另外，格式錯誤的請求雖然回 400，在指標中的狀態卻記成 `None`。
+- **串流 chunk 的 id 不一致**：
+  - 為了讓每一筆 chat 都寫進 spend log，`chat-default` 改走 LiteLLM 的 `ollama_chat/` provider。原因是 Ollama `/v1` 回傳的 id 只有 `chatcmpl-<0–999>`，會在 spend log 主鍵上碰撞而被丟掉。
+  - 副作用是串流回應中**每個 chunk 的 id 都不同**，不符合 OpenAI 規格；只依 id 合併 chunk 的 client 會出錯。
+  - 換成 vLLM 後改回 `openai/` 即可解決。
+  - 調查與重現見 [`reports/evidence/spendlog/FINDINGS.md`](reports/evidence/spendlog/FINDINGS.md)。
+- **spend log 曾短暫停止寫入，原因未確認**：2026-11-26 曾觀察到約 10 分鐘完全沒有寫入，之後未再重現。紀錄見 [`reports/evidence/incidents/spendlog-stall.txt`](reports/evidence/incidents/spendlog-stall.txt)。
 
 **推論與監控**
 
-- **Ollama 超載後退化**：Ollama 0.40.18 在超載過後，2 個同時進行的請求吞吐量會減半，直到重啟才恢復（見〈壓測與基準結果〉）。
+- **Ollama 超載後吞吐下降，需重啟才恢復**：緩解措施尚未實作。詳見〈驗證中的發現〉第 3 項。
 - **沒有推論端指標**：Ollama 不提供 Prometheus 指標，GPU 與佇列等推論端指標要等換成 vLLM 後才補齊。
-- **新序列的第一個樣本看不到**：Prometheus 的 `rate()`／`increase()` 算不到新序列的第一個樣本。某個應用第一次出現某種流量時（例如第一次串流），對應的面板要到下一次抓取後才有資料。
-- **重啟 LiteLLM 後短暫誤判**：重啟後，Prometheus 中的 counter 會歸零。接下來約 15 分鐘內，測試輔助函式 `instant()` 會取到舊序列的值，dashboard 與 e2e 測試可能失敗；舊序列離開時間範圍後就會恢復。
-- **In-flight 可能短暫顯示 1**：`In-flight now` 已扣掉 Prometheus 抓取 `/metrics` 的那個請求；但如果剛好有健康檢查同時進行，仍可能短暫顯示 1。
-- **Qdrant 閒置時沒有延遲資料**：Qdrant 只對 points 類端點記錄指標，所以閒置時「Qdrant p95 REST latency」面板沒有資料。
+- 儀表板讀數與測試的其他注意事項（新序列的第一個樣本、In-flight 短暫顯示 1、重啟 LiteLLM 後的短暫誤判等）見 [`docs/observability-notes.md`](docs/observability-notes.md)。
 
 ## Roadmap
 
