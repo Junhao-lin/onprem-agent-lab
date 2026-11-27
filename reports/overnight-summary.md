@@ -268,9 +268,7 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
   - Postgres：`ALTER USER ... PASSWORD` 經 stdin 送進 psql，再寫入 `.env`；接著用容器自己的 IP 走 TCP（pg_hba 的 scram-sha-256 規則，loopback 是 trust 所以不用）驗證**新密碼可登入、舊密碼被拒**。
   - Redis：先寫 `.env`，`up -d --force-recreate redis` 讓 requirepass 讀到新值；驗證**新密碼 PONG、舊密碼被拒**。
   - 重建 litellm（`DATABASE_URL` 與 `REDIS_PASSWORD` 都在它的環境變數裡），等全部服務 healthy。Postgres 也被 compose 重建（它的 `POSTGRES_PASSWORD` 環境變數變了）；資料在 named volume，既有資料庫不會重新初始化。
-  - 開發時踩到：Python 在 Windows 以文字模式寫 stdin 會把 `
-` 變 `
-`，shell 的 `read` 會把 `` 當成密碼的一部分。先用「正確密碼 True／錯誤密碼 False」試跑驗證函式才動手，因此沒有在錯誤狀態下改密碼。
+  - 開發時踩到：Python 在 Windows 以文字模式寫 stdin 會把 LF 變成 CRLF，shell 的 `read` 會把多出來的 CR 當成密碼的一部分；改成以 bytes 寫 stdin。先用「正確密碼 True／錯誤密碼 False」試跑驗證函式才動手，因此沒有在錯誤狀態下改密碼。
 - `bootstrap_keys.py --rotate`：兩把應用 key 換新（新的末 4 碼 `5dmg`、`pmKw`），舊 key 已刪除。驗證：舊 key 呼叫 `/v1/models` 回 **401**、新 key 回 **200**；`.env` 中只有這 4 個變數改變，其餘全部不變。
 - `docker compose up -d --force-recreate litellm` 重建容器，舊 log 已清掉（沒有使用 `down -v`，沒有刪除 volume）。
 - 重建後的 litellm log 跑過完整測試：`test_litellm_log_contains_no_keys` **通過**。
