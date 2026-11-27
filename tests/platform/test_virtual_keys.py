@@ -33,7 +33,7 @@ def load_bootstrap():
 def test_app_key_matches_limits_as_code(env, gateway, alias):
     spec = SPECS[alias]
     key = env[spec["env_var"]]
-    r = gateway.request("GET", "/key/info", query={"key": key})
+    r = gateway.request("GET", "/key/info", key=key)
     assert r.status == 200, f"{alias} key {mask(key)} not found"
     info = r.body["info"]
     assert info["key_alias"] == alias
@@ -208,7 +208,7 @@ def test_bootstrap_replaces_orphan_alias(gateway, tmp_path):
                                  body={"key_alias": alias, "models": ["chat-default"]})
         assert orphan.status == 200 and orphan.body.get("key"), f"orphan setup failed: {orphan.status}"
         orphan_key = orphan.body["key"]
-        assert gateway.request("GET", "/key/info", query={"key": orphan_key}).status == 200
+        assert gateway.request("GET", "/key/info", key=orphan_key).status == 200
 
         gw = bk.Gateway(gateway.base, gateway.master_key)
         r1 = bk.apply_key(gw, alias, spec, bk.load_env(fake_env), rotate=False)
@@ -219,7 +219,7 @@ def test_bootstrap_replaces_orphan_alias(gateway, tmp_path):
         assert e["TMP_KEY"] == k1 and e["OTHER"] == "keep"
         # The orphan was deleted (not just shadowed) and replaced by a different key.
         assert k1 != orphan_key
-        assert gateway.request("GET", "/key/info", query={"key": orphan_key}).status != 200
+        assert gateway.request("GET", "/key/info", key=orphan_key).status != 200
         listed = gateway.request("GET", "/key/list",
                                  query={"key_alias": alias, "return_full_object": "true"}).body["keys"]
         assert [x["token"] for x in listed] == [hashlib.sha256(k1.encode()).hexdigest()]

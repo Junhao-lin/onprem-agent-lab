@@ -1,0 +1,31 @@
+# LiteLLM spend-log writes stalled (observed 2026-11-26 ~16:18 UTC, during item C)
+
+## state before restart
+LiteLLM_SpendLogs count | newest startTime | db now: 1281|2026-11-26 16:18:05.23|2026-11-26 16:23:50.450381+00
+litellm container: Up 4 hours (healthy)
+test_spend_log_increments: failed 4 times in a row (30 s window); a master-key chat at ~16:20 did not land within 180 s
+no error mentioning spend/prisma/db write in docker compose logs litellm --since 40m
+
+## after restarting only the litellm service (~16:23 UTC)
+- litellm healthy again; LiteLLM_SpendLogs still 1281 rows, newest 16:18:05 (checked 16:24, 16:26)
+- test_spend_log_increments still fails (2 runs); a support-rag chat at ~16:25 returned 200 but no row
+- Postgres is writable: LiteLLM_VerificationToken.updated_at advanced to 16:25:51; not in recovery,
+  not read-only; container disk 8% used (host D: 95% used)
+- no Redis lock/spend keys; no ERROR from the spend writer (proxy logger runs at default level, so the
+  INFO/DEBUG lines of the spend-log queue monitor are not visible)
+- source: spend logs are queued in memory (db_spend_update_writer._insert_spend_log_to_db) and flushed
+  by _monitor_spend_logs_queue / update_spend (utils.py 4906-5110, poll 2 s, backoff <= 30 s)
+- NOT done (needs a decision): raising LiteLLM log level (config/env change), deeper debugging
+
+## later (checked ~16:50 UTC)
+- writes resumed on their own: rows exist from 16:27 onward; test_spend_log_increments passes again
+  (full suite 154 passed at ~16:50). Requests between 16:18 and ~16:27 never got a row (lost, not late).
+- bigger finding: spend logs UNDER-COUNT chat completions even when "working". During
+  loadtest/app_traffic.py (16:33-16:38 UTC; every request returned 200, see reports/raw/D/app-traffic.txt):
+      sent                                         rows in LiteLLM_SpendLogs
+      support-rag  embeddings          75          aembedding   70
+      support-rag  chat (57 stream + 18)  75          acompletion  16
+      onboarding   chat (50 stream + 25)  75          acompletion   8
+  so most chat completions (streaming and non-streaming) have no spend-log row; Prometheus metrics
+  (the dashboard) do count them. Cause unknown; not investigated further (needs a decision:
+  debug logging = config change). Spend/budget enforcement based on DB spend may be affected.

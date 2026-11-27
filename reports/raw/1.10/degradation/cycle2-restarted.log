@@ -1,0 +1,5 @@
+key: temporary loadtest-1795707621 (sk-…G4IA, no limits)
+output: reports\raw\1.10\degradation\cycle2-restarted
+warmup: HTTP 200 ttft=1.894s
+c=2   ok=8/8 429=0 err=0 ttft p50/p95=0.064/0.069s lat p95=3.11s decode p50=84.1 tok/s throughput=165.3 tok/s
+wrote reports\raw\1.10\degradation\cycle2-restarted\summary.md

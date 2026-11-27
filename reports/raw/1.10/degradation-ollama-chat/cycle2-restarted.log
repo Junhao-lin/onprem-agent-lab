@@ -1,0 +1,5 @@
+key: temporary loadtest-1795762678 (sk-…17tg, no limits)
+output: reports\raw\1.10\degradation-ollama-chat\cycle2-restarted
+warmup: HTTP 200 ttft=1.939s
+c=2   ok=8/8 429=0 err=0 ttft p50/p95=0.064/0.085s lat p95=3.37s decode p50=78.7 tok/s throughput=154.8 tok/s
+wrote reports\raw\1.10\degradation-ollama-chat\cycle2-restarted\summary.md

@@ -1,0 +1,1180 @@
+# Redacted copy of reports/raw/C/pytest.txt as committed in 0e5830d (that version leaked two
+# passwords; see reports/verification/C.md). Kept as timing evidence for item D.
+
+$ -m uv run pytest -v
+# started 2026-11-27 00:26:55, exit code 1
+
+============================= test session starts =============================
+platform win32 -- Python 3.12.4, pytest-9.2.0, pluggy-1.7.0 -- D:\onprem-agent-lab\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\onprem-agent-lab
+configfile: pyproject.toml
+testpaths: tests
+collecting ... collected 153 items
+
+tests/e2e/test_grafana.py::test_login_kept_out_of_url_and_kiosk_hides_chrome ERROR [  0%]
+tests/e2e/test_grafana.py::test_all_panels_rendered ERROR                [  1%]
+tests/e2e/test_grafana.py::test_no_panel_shows_no_data ERROR             [  1%]
+tests/e2e/test_grafana.py::test_stat_tile_has_value[Requests] ERROR      [  2%]
+tests/e2e/test_grafana.py::test_stat_tile_has_value[Error rate] ERROR    [  3%]
+tests/e2e/test_grafana.py::test_stat_tile_has_value[p95 latency] ERROR   [  3%]
+tests/e2e/test_grafana.py::test_stat_tile_has_value[p95 TTFT] ERROR      [  4%]
+tests/e2e/test_grafana.py::test_stat_tile_has_value[In-flight now] ERROR [  5%]
+tests/e2e/test_grafana.py::test_stat_tile_has_value[Scrape targets] ERROR [  5%]
+tests/e2e/test_grafana.py::test_stat_tile_has_value[Collections] ERROR   [  6%]
+tests/e2e/test_grafana.py::test_stat_tile_has_value[Vectors] ERROR       [  7%]
+tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Requests / s by app] ERROR [  7%]
+tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Failed requests / s by status] ERROR [  8%]
+tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[p95 request latency] ERROR [  9%]
+tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[p95 time to first token] ERROR [  9%]
+tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Output tokens / s] ERROR [ 10%]
+tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Input tokens / s] ERROR [ 11%]
+tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Qdrant REST requests / s] ERROR [ 11%]
+tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Qdrant p95 REST latency] ERROR [ 12%]
+tests/e2e/test_grafana.py::test_no_panel_errors ERROR                    [ 13%]
+tests/e2e/test_grafana.py::test_panels_do_not_overlap_and_fit_viewport ERROR [ 13%]
+tests/e2e/test_grafana.py::test_screenshot_saved ERROR                   [ 14%]
+tests/platform/test_containers.py::test_healthy[postgres] PASSED         [ 15%]
+tests/platform/test_containers.py::test_healthy[redis] PASSED            [ 15%]
+tests/platform/test_containers.py::test_healthy[ollama] PASSED           [ 16%]
+tests/platform/test_containers.py::test_healthy[litellm] PASSED          [ 16%]
+tests/platform/test_containers.py::test_healthy[qdrant] PASSED           [ 17%]
+tests/platform/test_containers.py::test_healthy[prometheus] PASSED       [ 18%]
+tests/platform/test_containers.py::test_healthy[grafana] PASSED          [ 18%]
+tests/platform/test_containers.py::test_ollama_init_exited_zero PASSED   [ 19%]
+tests/platform/test_containers.py::test_host_port_exposure[postgres] PASSED [ 20%]
+tests/platform/test_containers.py::test_host_port_exposure[redis] PASSED [ 20%]
+tests/platform/test_containers.py::test_host_port_exposure[ollama] PASSED [ 21%]
+tests/platform/test_containers.py::test_host_port_exposure[litellm] PASSED [ 22%]
+tests/platform/test_containers.py::test_host_port_exposure[qdrant] PASSED [ 22%]
+tests/platform/test_containers.py::test_host_port_exposure[prometheus] PASSED [ 23%]
+tests/platform/test_containers.py::test_host_port_exposure[grafana] PASSED [ 24%]
+tests/platform/test_containers.py::test_named_volume[postgres-/var/lib/postgresql/data] PASSED [ 24%]
+tests/platform/test_containers.py::test_named_volume[redis-/data] PASSED [ 25%]
+tests/platform/test_containers.py::test_named_volume[ollama-/root/.ollama] PASSED [ 26%]
+tests/platform/test_containers.py::test_named_volume[qdrant-/qdrant/storage] PASSED [ 26%]
+tests/platform/test_containers.py::test_named_volume[prometheus-/prometheus] PASSED [ 27%]
+tests/platform/test_containers.py::test_named_volume[grafana-/var/lib/grafana] PASSED [ 28%]
+tests/platform/test_containers.py::test_qdrant_telemetry_disabled PASSED [ 28%]
+tests/platform/test_containers.py::test_redis_rejects_unauthenticated PASSED [ 29%]
+tests/platform/test_containers.py::test_redis_accepts_authenticated PASSED [ 30%]
+tests/platform/test_containers.py::test_postgres_query PASSED            [ 30%]
+tests/platform/test_containers.py::test_internal_services_reachable_in_network PASSED [ 31%]
+tests/platform/test_containers.py::test_redis_password_not_in_command PASSED [ 32%]
+tests/platform/test_dashboards.py::test_committed_json_matches_generator PASSED [ 32%]
+tests/platform/test_dashboards.py::test_dashboard_provisioned PASSED     [ 33%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[Requests] PASSED [ 33%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[Error rate] PASSED [ 34%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[p95 latency] PASSED [ 35%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[p95 TTFT] PASSED [ 35%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[In-flight now] PASSED [ 36%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[Scrape targets] PASSED [ 37%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[Requests / s by app] PASSED [ 37%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[Failed requests / s by status] PASSED [ 38%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[p95 request latency] PASSED [ 39%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[p95 time to first token] PASSED [ 39%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[Output tokens / s] PASSED [ 40%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[Input tokens / s] PASSED [ 41%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[Qdrant REST requests / s] PASSED [ 41%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[Qdrant p95 REST latency] PASSED [ 42%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[Collections] PASSED [ 43%]
+tests/platform/test_dashboards.py::test_panel_queries_execute[Vectors] PASSED [ 43%]
+tests/platform/test_dashboards.py::test_per_app_panel_shows_live_traffic PASSED [ 44%]
+tests/platform/test_dashboards.py::test_app_variable_hides_test_and_master_traffic PASSED [ 45%]
+tests/platform/test_dashboards.py::test_per_app_panels_exist PASSED      [ 45%]
+tests/platform/test_dashboards.py::test_app_colors_fixed_per_entity[Requests / s by app] PASSED [ 46%]
+tests/platform/test_dashboards.py::test_app_colors_fixed_per_entity[p95 request latency] PASSED [ 47%]
+tests/platform/test_dashboards.py::test_app_colors_fixed_per_entity[p95 time to first token] PASSED [ 47%]
+tests/platform/test_dashboards.py::test_app_colors_fixed_per_entity[Output tokens / s] PASSED [ 48%]
+tests/platform/test_dashboards.py::test_app_colors_fixed_per_entity[Input tokens / s] PASSED [ 49%]
+tests/platform/test_dashboards.py::test_app_colors_never_status_colors PASSED [ 49%]
+tests/platform/test_dashboards.py::test_single_axis_and_legend[Requests / s by app] PASSED [ 50%]
+tests/platform/test_dashboards.py::test_single_axis_and_legend[Failed requests / s by status] PASSED [ 50%]
+tests/platform/test_dashboards.py::test_single_axis_and_legend[p95 request latency] PASSED [ 51%]
+tests/platform/test_dashboards.py::test_single_axis_and_legend[p95 time to first token] PASSED [ 52%]
+tests/platform/test_dashboards.py::test_single_axis_and_legend[Output tokens / s] PASSED [ 52%]
+tests/platform/test_dashboards.py::test_single_axis_and_legend[Input tokens / s] PASSED [ 53%]
+tests/platform/test_dashboards.py::test_single_axis_and_legend[Qdrant REST requests / s] PASSED [ 54%]
+tests/platform/test_dashboards.py::test_single_axis_and_legend[Qdrant p95 REST latency] PASSED [ 54%]
+tests/platform/test_dashboards.py::test_error_panel_uses_reserved_status_colors PASSED [ 55%]
+tests/platform/test_dashboards.py::test_real_app_error_shows_in_failure_panels FAILED [ 56%]
+tests/platform/test_dashboards.py::test_app_streaming_shows_in_ttft_panels PASSED [ 56%]
+tests/platform/test_dashboards.py::test_in_flight_reads_zero_when_idle PASSED [ 57%]
+tests/platform/test_dashboards.py::test_auth_rejections_are_not_metered PASSED [ 58%]
+tests/platform/test_dashboards.py::test_auth_rejection_does_not_skew_parallel_counter XFAIL [ 58%]
+tests/platform/test_gateway.py::test_readiness PASSED                    [ 59%]
+tests/platform/test_gateway.py::test_rejects_missing_or_wrong_key[None] PASSED [ 60%]
+tests/platform/test_gateway.py::test_rejects_missing_or_wrong_key[sk-…test] PASSED [ 60%]
+tests/platform/test_gateway.py::test_model_list_is_aliases_only PASSED   [ 61%]
+tests/platform/test_gateway.py::test_chat_returns_usage PASSED           [ 62%]
+tests/platform/test_gateway.py::test_chat_streaming PASSED               [ 62%]
+tests/platform/test_gateway.py::test_embedding_dim_1024 PASSED           [ 63%]
+tests/platform/test_gateway.py::test_spend_log_increments PASSED         [ 64%]
+tests/platform/test_loadtest.py::test_percentile[values0-50-None] PASSED [ 64%]
+tests/platform/test_loadtest.py::test_percentile[values1-95-3.0] PASSED  [ 65%]
+tests/platform/test_loadtest.py::test_percentile[values2-50-2.5] PASSED  [ 66%]
+tests/platform/test_loadtest.py::test_percentile[values3-95-4.8] PASSED  [ 66%]
+tests/platform/test_loadtest.py::test_percentile[values4-0-1] PASSED     [ 67%]
+tests/platform/test_loadtest.py::test_percentile[values5-100-5] PASSED   [ 67%]
+tests/platform/test_loadtest.py::test_summarize_counts_and_rates PASSED  [ 68%]
+tests/platform/test_loadtest.py::test_mask_matches_project_format PASSED [ 69%]
+tests/platform/test_loadtest.py::test_prompts_file_valid PASSED          [ 69%]
+tests/platform/test_loadtest.py::test_bench_end_to_end PASSED            [ 70%]
+tests/platform/test_loadtest.py::test_results_dir_never_tracked PASSED   [ 71%]
+tests/platform/test_loadtest.py::test_repro_degradation_plan PASSED      [ 71%]
+tests/platform/test_loadtest.py::test_stream_once_metric_definitions PASSED [ 72%]
+tests/platform/test_loadtest.py::test_summarize_throughput_and_percentiles_exact PASSED [ 73%]
+tests/platform/test_loadtest.py::test_delete_temp_key_confirms_deletion[admin0-True] PASSED [ 73%]
+tests/platform/test_loadtest.py::test_delete_temp_key_confirms_deletion[admin1-False] PASSED [ 74%]
+tests/platform/test_loadtest.py::test_delete_temp_key_confirms_deletion[admin2-False] PASSED [ 75%]
+tests/platform/test_loadtest.py::test_delete_temp_key_never_raises PASSED [ 75%]
+tests/platform/test_loadtest.py::test_temp_key_deleted_when_a_level_crashes PASSED [ 76%]
+tests/platform/test_loadtest.py::test_failed_cleanup_is_reported PASSED  [ 77%]
+tests/platform/test_monitoring.py::test_all_scrape_targets_up PASSED     [ 77%]
+tests/platform/test_monitoring.py::test_qdrant_scrape_uses_secret_file PASSED [ 78%]
+tests/platform/test_monitoring.py::test_gateway_metrics_labelled_per_app PASSED [ 79%]
+tests/platform/test_monitoring.py::test_grafana_health PASSED            [ 79%]
+tests/platform/test_monitoring.py::test_grafana_requires_login PASSED    [ 80%]
+tests/platform/test_monitoring.py::test_grafana_datasource_provisioned PASSED [ 81%]
+tests/platform/test_monitoring.py::test_grafana_datasource_healthy PASSED [ 81%]
+tests/platform/test_monitoring.py::test_grafana_phone_home_disabled PASSED [ 82%]
+tests/platform/test_qdrant.py::test_health_open_data_locked PASSED       [ 83%]
+tests/platform/test_qdrant.py::test_end_to_end_gateway_embedding_roundtrip PASSED [ 83%]
+tests/platform/test_repo_hygiene.py::test_ignored[.env] PASSED           [ 84%]
+tests/platform/test_repo_hygiene.py::test_ignored[.env.local] PASSED     [ 84%]
+tests/platform/test_repo_hygiene.py::test_ignored[loadtest/results/run.csv] PASSED [ 85%]
+tests/platform/test_repo_hygiene.py::test_ignored[loadtest/results/sub/report.md] PASSED [ 86%]
+tests/platform/test_repo_hygiene.py::test_env_not_tracked PASSED         [ 86%]
+tests/platform/test_repo_hygiene.py::test_env_example_tracked_and_placeholder_only PASSED [ 87%]
+tests/platform/test_repo_hygiene.py::test_loadtest_results_untracked PASSED [ 88%]
+tests/platform/test_repo_hygiene.py::test_no_secret_values_in_tracked_files FAILED [ 88%]
+tests/platform/test_repo_hygiene.py::test_shell_scripts_are_lf PASSED    [ 89%]
+tests/platform/test_repo_hygiene.py::test_virtual_keys_toml_has_no_key_values PASSED [ 90%]
+tests/platform/test_repo_hygiene.py::test_model_names_in_sync PASSED     [ 90%]
+tests/platform/test_repo_hygiene.py::test_compose_images_pinned PASSED   [ 91%]
+tests/platform/test_virtual_keys.py::test_app_key_matches_limits_as_code[support-rag] PASSED [ 92%]
+tests/platform/test_virtual_keys.py::test_app_key_matches_limits_as_code[onboarding-agent] PASSED [ 92%]
+tests/platform/test_virtual_keys.py::test_app_alias_unique[support-rag] PASSED [ 93%]
+tests/platform/test_virtual_keys.py::test_app_alias_unique[onboarding-agent] PASSED [ 94%]
+tests/platform/test_virtual_keys.py::test_parallel_budget_matches_ollama_capacity PASSED [ 94%]
+tests/platform/test_virtual_keys.py::test_model_allow_lists PASSED       [ 95%]
+tests/platform/test_virtual_keys.py::test_rpm_limit PASSED               [ 96%]
+tests/platform/test_virtual_keys.py::test_tpm_limit PASSED               [ 96%]
+tests/platform/test_virtual_keys.py::test_parallel_limit PASSED          [ 97%]
+tests/platform/test_virtual_keys.py::test_limiter_counters_in_redis PASSED [ 98%]
+tests/platform/test_virtual_keys.py::test_responses_not_cached_by_default PASSED [ 98%]
+tests/platform/test_virtual_keys.py::test_bootstrap_rerun_keeps_env_and_masks_output PASSED [ 99%]
+tests/platform/test_virtual_keys.py::test_bootstrap_replaces_orphan_alias PASSED [100%]
+
+=================================== ERRORS ====================================
+_____ ERROR at setup of test_login_kept_out_of_url_and_kiosk_hides_chrome _____
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+_________________ ERROR at setup of test_all_panels_rendered __________________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+________________ ERROR at setup of test_no_panel_shows_no_data ________________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+____________ ERROR at setup of test_stat_tile_has_value[Requests] _____________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+___________ ERROR at setup of test_stat_tile_has_value[Error rate] ____________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+___________ ERROR at setup of test_stat_tile_has_value[p95 latency] ___________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+____________ ERROR at setup of test_stat_tile_has_value[p95 TTFT] _____________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+__________ ERROR at setup of test_stat_tile_has_value[In-flight now] __________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+_________ ERROR at setup of test_stat_tile_has_value[Scrape targets] __________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+___________ ERROR at setup of test_stat_tile_has_value[Collections] ___________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+_____________ ERROR at setup of test_stat_tile_has_value[Vectors] _____________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+__ ERROR at setup of test_timeseries_has_plotted_series[Requests / s by app] __
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+_ ERROR at setup of test_timeseries_has_plotted_series[Failed requests / s by status] _
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+__ ERROR at setup of test_timeseries_has_plotted_series[p95 request latency] __
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+_ ERROR at setup of test_timeseries_has_plotted_series[p95 time to first token] _
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+___ ERROR at setup of test_timeseries_has_plotted_series[Output tokens / s] ___
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+___ ERROR at setup of test_timeseries_has_plotted_series[Input tokens / s] ____
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+_ ERROR at setup of test_timeseries_has_plotted_series[Qdrant REST requests / s] _
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+_ ERROR at setup of test_timeseries_has_plotted_series[Qdrant p95 REST latency] _
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+___________________ ERROR at setup of test_no_panel_errors ____________________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+________ ERROR at setup of test_panels_do_not_overlap_and_fit_viewport ________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+___________________ ERROR at setup of test_screenshot_saved ___________________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357E929F0>
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+probe_image = 'python:3.12.16-alpine3.24'
+
+    @pytest.fixture(scope="module")
+    def app_traffic(env, gateway, grafana, probe_image):
+        """Real-app traffic every panel needs, each observed across a scrape:
+        streams from both apps (requests, latency, TTFT, tokens), one
+        support-rag 429 (failed-requests panel, error rate) and Qdrant point
+        upserts/queries (Prometheus scrapes of Qdrant are not counted as REST calls)."""
+        for alias, var in (("support-rag", "SUPPORT_RAG_LLM_KEY"),
+                           ("onboarding-agent", "ONBOARDING_AGENT_LLM_KEY")):
+            def stream(key=env[var]):
+                status, resp = open_stream(gateway, key)
+                assert status == 200, f"{alias} stream: HTTP {status}"
+                drain(resp)
+>           twice_across_scrape(
+                grafana, stream,
+                f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
+
+tests\e2e\test_grafana.py:62:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
+action = <function app_traffic.<locals>.stream at 0x0000020357EA6F20>
+counter = 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})
+E           assert 1 > 185
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357EA77E0>, 'sum(litellm_llm_api_time_to_first_token_metric_count{api_key_alias="support-rag"})', 185)
+
+tests\platform\test_dashboards.py:202: AssertionError
+================================== FAILURES ===================================
+_________________ test_real_app_error_shows_in_failure_panels _________________
+
+env = {'POSTGRES_USER': 'litellm', 'POSTGRES_PASSWORD': '[REDACTED]', 'POSTGRES_DB': 'litellm', 'REDIS_PASSWORD': '[REDACTED]', ...}
+gateway = <conftest.Gateway object at 0x0000020357F3F140>
+grafana = <function grafana.<locals>.call at 0x0000020357F54040>
+
+    @pytest.mark.llm
+    def test_real_app_error_shows_in_failure_panels(env, gateway, grafana):
+        """A metered error from a REAL app key (not pytest-tmp-*) reaches the panels.
+
+        Auth-stage 401s are not metered (test_auth_rejections_are_not_metered), so the
+        error is a 429 from support-rag's own parallel limit: hold 2 slots, send a 3rd.
+        support-rag is used because no test sends it auth-rejected requests, which
+        skew the limiter counter (see test_auth_rejection_does_not_skew_parallel_counter)."""
+        key = env["SUPPORT_RAG_LLM_KEY"]
+        slots = SPECS_PARALLEL["support-rag"]
+        counter = f'sum({bd.FAIL}{{api_key_alias="support-rag",exception_status="429"}})'
+
+        def overflow():
+            assert hold_slots_then_overflow(gateway, key, slots) == [200] * slots + [429]
+>       twice_across_scrape(grafana, overflow, counter)
+
+tests\platform\test_dashboards.py:236:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+grafana = <function grafana.<locals>.call at 0x0000020357F54040>
+action = <function test_real_app_error_shows_in_failure_panels.<locals>.overflow at 0x0000020357F55580>
+counter = 'sum(litellm_proxy_failed_requests_metric_total{api_key_alias="support-rag",exception_status="429"})'
+
+    def twice_across_scrape(grafana, action, counter: str) -> None:
+        """Run `action` twice with a scrape in between. rate()/increase() cannot see
+        the first sample of a brand-new series, so panels need two observed points."""
+        for _ in range(2):
+            before = instant(grafana, counter)
+            action()
+>           assert wait_increase(grafana, counter, before) > before, f"not scraped: {counter}"
+E           AssertionError: not scraped: sum(litellm_proxy_failed_requests_metric_total{api_key_alias="support-rag",exception_status="429"})
+E           assert 1 > 60
+E            +  where 1 = wait_increase(<function grafana.<locals>.call at 0x0000020357F54040>, 'sum(litellm_proxy_failed_requests_metric_total{api_key_alias="support-rag",exception_status="429"})', 60)
+
+tests\platform\test_dashboards.py:202: AssertionError
+___________________ test_no_secret_values_in_tracked_files ____________________
+
+    def test_no_secret_values_in_tracked_files():
+        secrets = secret_values()
+        assert secrets, ".env has no secrets to check against"
+        leaks = []
+        for f in tracked_files():
+            p = REPO / f
+            try:
+                text = p.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, FileNotFoundError):
+                continue
+            leaks += [f"{k} in {f}" for k, v in secrets.items() if v in text]
+>       assert not leaks, leaks
+E       AssertionError: ['POSTGRES_PASSWORD in reports/raw/C/pytest.txt', 'REDIS_PASSWORD in reports/raw/C/pytest.txt']
+E       assert not ['POSTGRES_PASSWORD in reports/raw/C/pytest.txt', 'REDIS_PASSWORD in reports/raw/C/pytest.txt']
+
+tests\platform\test_repo_hygiene.py:59: AssertionError
+=========================== short test summary info ===========================
+XFAIL tests/platform/test_dashboards.py::test_auth_rejection_does_not_skew_parallel_counter - LiteLLM 1.83 bug: a 401 'model not allowed' decrements the parallel-request counter without incrementing it, so an app can temporarily raise its own concurrency ceiling. strict: alerts us when an upgrade fixes it.
+ERROR tests/e2e/test_grafana.py::test_login_kept_out_of_url_and_kiosk_hides_chrome
+ERROR tests/e2e/test_grafana.py::test_all_panels_rendered - AssertionError: n...
+ERROR tests/e2e/test_grafana.py::test_no_panel_shows_no_data - AssertionError...
+ERROR tests/e2e/test_grafana.py::test_stat_tile_has_value[Requests] - Asserti...
+ERROR tests/e2e/test_grafana.py::test_stat_tile_has_value[Error rate] - Asser...
+ERROR tests/e2e/test_grafana.py::test_stat_tile_has_value[p95 latency] - Asse...
+ERROR tests/e2e/test_grafana.py::test_stat_tile_has_value[p95 TTFT] - Asserti...
+ERROR tests/e2e/test_grafana.py::test_stat_tile_has_value[In-flight now] - As...
+ERROR tests/e2e/test_grafana.py::test_stat_tile_has_value[Scrape targets] - A...
+ERROR tests/e2e/test_grafana.py::test_stat_tile_has_value[Collections] - Asse...
+ERROR tests/e2e/test_grafana.py::test_stat_tile_has_value[Vectors] - Assertio...
+ERROR tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Requests / s by app]
+ERROR tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Failed requests / s by status]
+ERROR tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[p95 request latency]
+ERROR tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[p95 time to first token]
+ERROR tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Output tokens / s]
+ERROR tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Input tokens / s]
+ERROR tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Qdrant REST requests / s]
+ERROR tests/e2e/test_grafana.py::test_timeseries_has_plotted_series[Qdrant p95 REST latency]
+ERROR tests/e2e/test_grafana.py::test_no_panel_errors - AssertionError: not s...
+ERROR tests/e2e/test_grafana.py::test_panels_do_not_overlap_and_fit_viewport
+ERROR tests/e2e/test_grafana.py::test_screenshot_saved - AssertionError: not ...
+FAILED tests/platform/test_dashboards.py::test_real_app_error_shows_in_failure_panels
+FAILED tests/platform/test_repo_hygiene.py::test_no_secret_values_in_tracked_files
+======= 2 failed, 128 passed, 1 xfailed, 22 errors in 187.86s (0:03:07) =======

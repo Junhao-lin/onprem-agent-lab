@@ -1,0 +1,28 @@
+run 2026-11-27 00:11:50 against http://127.0.0.1:4000
+litellm version: 1.83.14
+
+=== A: requests for a model the key is not allowed to use (401) ===
+key pytest-tmp-repro-a-1795709510251 (sk-…hJ3Q): models=['chat-default'], max_parallel_requests=2
+A0. fresh key                                                  HTTP -    counter = (nil) ttl = -2s
+A1. allowed chat completion (expect 0)                         HTTP 200  counter = 0     ttl = 59s
+A2.1 /v1/embeddings, model not allowed -> 401 (expect 0)       HTTP 401  counter = -1    ttl = 59s
+A2.2 /v1/embeddings, model not allowed -> 401 (expect 0)       HTTP 401  counter = -2    ttl = 59s
+A3. /v1/chat/completions, model not allowed -> 401 (expect 0)  HTTP 401  counter = -3    ttl = 59s
+A4. impact: open 3 concurrent streams on this key (limit 2)
+    statuses: [200, 200, 200]  (a correct limiter answers the 3rd with 429)
+A5. after the streams finished                                 HTTP -    counter = -3    ttl = 56s
+metrics: litellm_proxy_failed_requests_metric_total for pytest-tmp-repro-a-1795709510251:
+    (no series: these failures were not counted)
+cleanup: pytest-tmp-repro-a-1795709510251 deleted (confirmed via /key/list)
+
+=== B: malformed request rejected in a pre-call hook (400) ===
+key pytest-tmp-repro-b-1795709519172 (sk-…cGPg): models=['chat-default'], max_parallel_requests=2
+B0. fresh key                                                  HTTP -    counter = (nil) ttl = -2s
+B1. allowed chat completion (expect 0)                         HTTP 200  counter = 0     ttl = 59s
+B2.1 messages is a list of strings -> 400 (expect 0)           HTTP 400  counter = 1     ttl = 58s
+B2.2 messages is a list of strings -> 400 (expect 0)           HTTP 400  counter = 2     ttl = 58s
+B3. impact: one allowed chat, nothing in flight (expect 200)   HTTP 429  counter = 2     ttl = 59s
+metrics: litellm_proxy_failed_requests_metric_total for pytest-tmp-repro-b-1795709519172:
+    {'route': '/v1/chat/completions', 'exception_status': 'None', 'exception_class': 'AttributeError'} = 2.0
+    {'route': '/v1/chat/completions', 'exception_status': '429', 'exception_class': 'HTTPException'} = 1.0
+cleanup: pytest-tmp-repro-b-1795709519172 deleted (confirmed via /key/list)

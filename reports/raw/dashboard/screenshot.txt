@@ -1,0 +1,2 @@
+exempt from data checks (--allow-idle-qdrant): ['Qdrant REST requests / s', 'Qdrant p95 REST latency']
+saved docs\images\dashboard.png: 16 panels, all with data (range now-7m)

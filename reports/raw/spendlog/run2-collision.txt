@@ -1,0 +1,13 @@
+run 2026-11-27 11:44:17 temp key alias pytest-tmp-spendlog-1795751057; N=10 per group
+sent nonstream: statuses [200], 10 ok
+sent stream   : statuses [200], 10 ok
+sent embed    : statuses [200], 10 ok
+chat response ids: 20 (20 distinct); already present in the table from earlier requests: 15
+chat response id samples: ['chatcmpl-156', 'chatcmpl-191', 'chatcmpl-215', 'chatcmpl-221', 'chatcmpl-244', 'chatcmpl-247']
++    0s rows: []
++    5s rows: [['spend-embed', 'aembedding', '10'], ['spend-nonstream', 'acompletion', '2'], ['spend-stream', 'acompletion', '3']]
+chat ids NOT taken before: 5 -> logged for this key: 5
+chat ids already taken:    15 -> logged for this key: 0
+embeddings by x-litellm-call-id (uuid): 10/10 rows
+row shape (end_user, call_type, status, has_completion_tokens, request_id prefix): [['spend-stream', 'acompletion', 'success', 't', 'chatcmpl-'], ['spend-embed', 'aembedding', 'success', 'f', '5433fc03-'], ['spend-nonstream', 'acompletion', 'success', 't', 'chatcmpl-'], ['spend-embed', 'aembedding', 'success', 'f', '457ff58f-'], ['spend-embed', 'aembedding', 'success', 'f', '36251b14-'], ['spend-stream', 'acompletion', 'success', 't', 'chatcmpl-']]
+cleanup: pytest-tmp-spendlog-1795751057 deleted = True

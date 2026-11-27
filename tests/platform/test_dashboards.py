@@ -181,6 +181,20 @@ def instant(grafana, expr: str) -> float:
     return vals[-1] if vals else 0.0
 
 
+def instant_at(grafana, expr: str, ts: float) -> float:
+    """Value of an expression evaluated at one timestamp, through Grafana's datasource."""
+    ms = int(ts * 1000)
+    r = grafana("POST", "/api/ds/query", {
+        "from": str(ms), "to": str(ms),
+        "queries": [{"refId": "A", "datasource": bd.DS, "expr": expr.replace("$app", "|".join(REAL_APPS)),
+                     "range": False, "instant": True}]})
+    assert r.status == 200, (expr, r.status, r.body)
+    vals = [v for f in r.body["results"]["A"].get("frames", [])
+            for v in (f.get("data", {}).get("values", [[], []]) + [[]])[1] if v is not None]
+    assert len(vals) == 1, (expr, vals)
+    return vals[0]
+
+
 def panel_expr(title: str) -> str:
     return next(p for p in PANELS if p["title"] == title)["targets"][0]["expr"]
 
@@ -262,20 +276,26 @@ def test_app_streaming_shows_in_ttft_panels(env, gateway, grafana):
 
 def test_in_flight_reads_zero_when_idle(grafana, probe_image):
     """Raw gauge counts the scrape itself (>= 1); the panel must read 0 when idle.
-    Waits for a scrape that happens after this test starts sending nothing."""
-    def last_scrape() -> float:
-        r = probe([{"url": "http://prometheus:9090/api/v1/query?query=litellm_in_flight_requests"}])
-        res = r[0]["body"]["data"]["result"]
-        return float(res[0]["value"][0]) if res else 0.0
+    Waits for a scrape that happens after this test starts sending nothing, then
+    evaluates the panel expression AT that scrape. (A range query's last step is
+    aligned to the step grid and can fall before the fresh scrape, so it would
+    still see the previous test's streams - that made this test timing-dependent.)"""
+    def last_sample() -> tuple[float, float]:
+        """(scrape timestamp, value) of the newest sample. An instant query's own
+        value[0] is the evaluation time, so the scrape time comes from timestamp()."""
+        r = probe([{"url": "http://prometheus:9090/api/v1/query?query=timestamp(litellm_in_flight_requests)"},
+                   {"url": "http://prometheus:9090/api/v1/query?query=litellm_in_flight_requests"}])
+        ts, val = (x["body"]["data"]["result"] for x in r)
+        return (float(ts[0]["value"][1]), float(val[0]["value"][1])) if ts and val else (0.0, 0.0)
 
     t0 = time.time()
     deadline = time.monotonic() + 40
-    while last_scrape() <= t0 + 1 and time.monotonic() < deadline:
+    while last_sample()[0] <= t0 + 1 and time.monotonic() < deadline:
         time.sleep(2)
-    assert last_scrape() > t0, "no fresh scrape observed"
-    raw = probe([{"url": "http://prometheus:9090/api/v1/query?query=sum(litellm_in_flight_requests)"}])
-    assert float(raw[0]["body"]["data"]["result"][0]["value"][1]) >= 1  # the scrape itself
-    assert instant(grafana, panel_expr("In-flight now")) == 0
+    ts, raw = last_sample()
+    assert ts > t0, "no fresh scrape observed"
+    assert raw >= 1  # the scrape itself
+    assert instant_at(grafana, panel_expr("In-flight now"), ts) == 0
 
 
 @pytest.mark.llm

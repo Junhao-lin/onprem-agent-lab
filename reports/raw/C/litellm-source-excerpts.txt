@@ -1,0 +1,130 @@
+# LiteLLM 1.83.14 source excerpts (image litellm-database:main-v1.83.14-stable), read-only copy for the issue draft
+
+== litellm/proxy/hooks/parallel_request_limiter_v3.py lines 1277-1290
+ 1277      async def async_pre_call_hook(
+ 1278          self,
+ 1279          user_api_key_dict: UserAPIKeyAuth,
+ 1280          cache: DualCache,
+ 1281          data: dict,
+ 1282          call_type: str,
+ 1283      ):
+ 1284          """
+ 1285          Pre-call hook to check rate limits before making the API call.
+ 1286          Supports dynamic rate limiting based on deployment health.
+ 1287          """
+ 1288          verbose_proxy_logger.debug("Inside Rate Limit Pre-Call Hook")
+ 1289
+ 1290          #########################################################
+
+== litellm/proxy/hooks/parallel_request_limiter_v3.py lines 1589-1605
+ 1589          pipeline_operations: List[RedisPipelineIncrementOperation] = []
+ 1590
+ 1591          # API Key TPM
+ 1592          if user_api_key:
+ 1593              # MAX PARALLEL REQUESTS - only support for API Key, just decrement the counter
+ 1594              counter_key = self.create_rate_limit_keys(
+ 1595                  key="api_key",
+ 1596                  value=user_api_key,
+ 1597                  rate_limit_type="max_parallel_requests",
+ 1598              )
+ 1599              pipeline_operations.append(
+ 1600                  RedisPipelineIncrementOperation(
+ 1601                      key=counter_key,
+ 1602                      increment_value=-1,
+ 1603                      ttl=self.window_size,
+ 1604                  )
+ 1605              )
+
+== litellm/proxy/hooks/parallel_request_limiter_v3.py lines 1761-1803
+ 1761      async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time):
+ 1762          """
+ 1763          Decrement max parallel requests counter for the API Key
+ 1764          """
+ 1765          from litellm.litellm_core_utils.core_helpers import (
+ 1766              _get_parent_otel_span_from_kwargs,
+ 1767          )
+ 1768          from litellm.types.caching import RedisPipelineIncrementOperation
+ 1769
+ 1770          try:
+ 1771              litellm_parent_otel_span: Union[Span, None] = (
+ 1772                  _get_parent_otel_span_from_kwargs(kwargs)
+ 1773              )
+ 1774              # Get metadata from standard_logging_object - this correctly handles both
+ 1775              # 'metadata' and 'litellm_metadata' fields from litellm_params
+ 1776              standard_logging_object = kwargs.get("standard_logging_object") or {}
+ 1777              standard_logging_metadata = standard_logging_object.get("metadata") or {}
+ 1778              user_api_key = standard_logging_metadata.get("user_api_key_hash")
+ 1779
+ 1780              pipeline_operations: List[RedisPipelineIncrementOperation] = []
+ 1781
+ 1782              if user_api_key:
+ 1783                  # MAX PARALLEL REQUESTS - only support for API Key, just decrement the counter
+ 1784                  counter_key = self.create_rate_limit_keys(
+ 1785                      key="api_key",
+ 1786                      value=user_api_key,
+ 1787                      rate_limit_type="max_parallel_requests",
+ 1788                  )
+ 1789                  pipeline_operations.append(
+ 1790                      RedisPipelineIncrementOperation(
+ 1791                          key=counter_key,
+ 1792                          increment_value=-1,
+ 1793                          ttl=self.window_size,
+ 1794                      )
+ 1795                  )
+ 1796
+ 1797              # Execute all increments in a single pipeline
+ 1798              if pipeline_operations:
+ 1799                  await self.internal_usage_cache.dual_cache.async_increment_cache_pipeline(
+ 1800                      increment_list=pipeline_operations,
+ 1801                      litellm_parent_otel_span=litellm_parent_otel_span,
+ 1802                  )
+ 1803          except Exception as e:
+
+== litellm/proxy/auth/auth_checks.py lines 2775-2790
+ 2775      ## check model access for alias + underlying model - allow if either is in allowed models
+ 2776      for m in potential_models:
+ 2777          if _check_model_access_helper(
+ 2778              model=m,
+ 2779              llm_router=llm_router,
+ 2780              models=models,
+ 2781              team_model_aliases=team_model_aliases,
+ 2782              team_id=team_id,
+ 2783          ):
+ 2784              return True
+ 2785
+ 2786      raise ProxyException(
+ 2787          message=f"{object_type} not allowed to access model. This {object_type} can only access models={models}. Tried to access {model}",
+ 2788          type=ProxyErrorTypes.get_model_access_error_type_for_object(
+ 2789              object_type=object_type
+ 2790          ),
+
+== litellm/proxy/utils.py lines 1425-1440
+ 1425                      and isinstance(_callback, CustomLogger)
+ 1426                      and "async_pre_call_hook" in vars(_callback.__class__)
+ 1427                      and _callback.__class__.async_pre_call_hook
+ 1428                      != CustomLogger.async_pre_call_hook
+ 1429                  ):
+ 1430                      if call_type == "call_mcp_tool" and user_api_key_dict is None:
+ 1431                          continue
+ 1432
+ 1433                      response = await _callback.async_pre_call_hook(
+ 1434                          user_api_key_dict=user_api_key_dict,
+ 1435                          cache=self.call_details["user_api_key_cache"],
+ 1436                          data=data,  # type: ignore
+ 1437                          call_type=call_type,  # type: ignore
+ 1438                      )
+ 1439                      if response is not None:
+ 1440                          data = await self.process_pre_call_hook_response(
+
+== litellm_enterprise/proxy/hooks/managed_files.py lines 626-636
+  626      def get_file_ids_from_messages(self, messages: List[AllMessageValues]) -> List[str]:
+  627          """
+  628          Gets file ids from messages
+  629          """
+  630          file_ids = []
+  631          for message in messages:
+  632              if message.get("role") == "user":
+  633                  content = message.get("content")
+  634                  if content:
+  635                      if isinstance(content, str):
+  636                          continue

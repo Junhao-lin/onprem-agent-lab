@@ -1,0 +1,4 @@
+app traffic for 300s: support-rag every 4.0s (embed + chat), onboarding-agent every 4.0s
+support-rag       turns  75  {'chat 200': 18, 'embed 200': 75, 'stream 200': 57}  TTFT p50 0.050s
+onboarding-agent  turns  75  {'chat 200': 25, 'stream 200': 50}  TTFT p50 0.045s
+rc=0

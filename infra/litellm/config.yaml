@@ -6,11 +6,15 @@
 model_list:
   - model_name: chat-default
     litellm_params:
-      # Ollama's OpenAI-compatible endpoint; same shape as vLLM's.
+      # Ollama's native /api/chat via LiteLLM's ollama_chat provider, NOT the
+      # OpenAI-compatible /v1 endpoint: /v1 returns ids "chatcmpl-<0..999>", and
+      # LiteLLM uses the response id as the spend-log primary key (inserted with
+      # skip_duplicates), so most chats were silently not logged. ollama_chat
+      # makes LiteLLM generate a UUID id. See reports/raw/spendlog/FINDINGS.md.
+      # (vLLM: switch back to openai/... - its ids are UUIDs.)
       # Keep in sync with OLLAMA_CHAT_MODEL in .env
-      model: openai/qwen2.5:7b-instruct
-      api_base: http://ollama:11434/v1
-      api_key: os.environ/OLLAMA_API_KEY
+      model: ollama_chat/qwen2.5:7b-instruct
+      api_base: http://ollama:11434
     model_info:
       mode: chat
       # Local model: zero cost, but tokens are still counted for tpm limits

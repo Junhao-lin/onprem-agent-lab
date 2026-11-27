@@ -1,5 +1,7 @@
 """LiteLLM gateway (task 1.4)."""
+import hashlib
 import json
+import re
 import time
 import urllib.request
 
@@ -62,15 +64,53 @@ def test_embedding_dim_1024(gateway):
     assert len(r.body["data"][0]["embedding"]) == 1024
 
 
-@pytest.mark.llm
-def test_spend_log_increments(env, gateway):
-    """1.4 pending: every request is persisted to Postgres (written async in batches)."""
-    def count() -> int:
-        return int(psql(env, 'select count(*) from "LiteLLM_SpendLogs"') or 0)
+def _chat_response_id(gateway, key: str, stream: bool, i: int) -> str:
+    """Send one chat and return the response id (for a stream: the first chunk's id,
+    which is what LiteLLM stores as the spend-log request_id)."""
+    req = urllib.request.Request(gateway.base + "/v1/chat/completions", method="POST", data=json.dumps({
+        "model": "chat-default", "max_tokens": 3, "temperature": 0, "stream": stream,
+        "messages": [{"role": "user", "content": f"Say {i}."}]}).encode())
+    req.add_header("Authorization", f"Bearer {key}")
+    req.add_header("Content-Type", "application/json")
+    with urllib.request.urlopen(req, timeout=120) as r:
+        assert r.status == 200
+        if not stream:
+            return json.loads(r.read())["id"]
+        first = ""
+        for raw in r:
+            line = raw.decode().strip()
+            if line == "data: [DONE]":
+                break
+            if line.startswith("data: ") and not first:
+                first = json.loads(line[6:])["id"]
+        return first
 
-    before = count()
-    assert gateway.chat(gateway.master_key).status == 200
-    deadline = time.monotonic() + 30
-    while time.monotonic() < deadline and count() <= before:
-        time.sleep(1)
-    assert count() > before
+
+@pytest.mark.llm
+def test_every_chat_has_its_own_spend_log_row(env, gateway, tmp_key):
+    """Every chat (streaming and not) is persisted to LiteLLM_SpendLogs under its own id.
+
+    The earlier check ("total row count went up") passed even though most chats were
+    silently dropped: with Ollama's OpenAI-compatible /v1, response ids are only
+    "chatcmpl-<0..999>", LiteLLM uses the id as the spend-log primary key and inserts
+    with skip_duplicates. Fixed by the ollama_chat provider (UUID ids); see
+    reports/raw/spendlog/FINDINGS.md. A disposable key makes the rows attributable."""
+    key = tmp_key("spendlog")
+    hashed = hashlib.sha256(key.encode()).hexdigest()
+    ids = [_chat_response_id(gateway, key, stream, i) for i in range(3) for stream in (False, True)]
+    assert all(ids) and len(set(ids)) == len(ids), "response ids missing or not unique"
+    short = [i for i in ids if re.fullmatch(r"chatcmpl-\d{1,4}", i)]
+    assert short == [], f"short Ollama /v1 ids would collide in the spend log: {short}"
+
+    def logged() -> set[str]:
+        out = psql(env, f'select request_id from "LiteLLM_SpendLogs" '
+                        f"where api_key = '{hashed}' and call_type = 'acompletion'")
+        return set(out.split())
+
+    deadline = time.monotonic() + 60          # spend logs are flushed asynchronously in batches
+    while time.monotonic() < deadline and not set(ids) <= logged():
+        time.sleep(2)
+    rows = logged()
+    missing = [i for i in ids if i not in rows]
+    assert missing == [], f"{len(missing)}/{len(ids)} chats have no spend-log row"
+    assert rows == set(ids)                   # and nothing else was logged for this key
