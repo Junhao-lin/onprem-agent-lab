@@ -78,9 +78,22 @@ def test_model_names_in_sync():
     """.env OLLAMA_*_MODEL must match what the gateway config routes to."""
     env = load_env(REPO / ".env")
     cfg = (REPO / "infra/litellm/config.yaml").read_text(encoding="utf-8")
-    routed = re.findall(r"model:\s*openai/(\S+)", cfg)
+    routed = re.findall(r"model:\s*(?:openai|ollama_chat)/(\S+)", cfg)
     assert env["OLLAMA_CHAT_MODEL"] in routed, (env["OLLAMA_CHAT_MODEL"], routed)
     assert env["OLLAMA_EMBED_MODEL"] in routed, (env["OLLAMA_EMBED_MODEL"], routed)
+
+
+def test_chat_on_ollama_uses_native_provider():
+    """While the backend is Ollama, chat must go through ollama_chat/ (UUID response ids),
+    not openai/ on Ollama's /v1, whose "chatcmpl-<0..999>" ids collide on the spend-log
+    primary key (reports/raw/spendlog/FINDINGS.md)."""
+    cfg = (REPO / "infra/litellm/config.yaml").read_text(encoding="utf-8")
+    block = re.search(r"model_name:\s*chat-default\n(.*?)(?=\n\s*- model_name:|\Z)", cfg, re.S).group(1)
+    model = re.search(r"^\s*model:\s*(\S+)", block, re.M).group(1)
+    api_base = re.search(r"^\s*api_base:\s*(\S+)", block, re.M).group(1)
+    if "ollama" in api_base:
+        assert model.startswith("ollama_chat/"), model
+        assert not api_base.rstrip("/").endswith("/v1"), api_base
 
 
 def test_compose_images_pinned():

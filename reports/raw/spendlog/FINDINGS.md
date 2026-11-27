@@ -62,3 +62,28 @@
 4. **測試**：
    - 把 `test_spend_log_increments` 改成「這一筆請求自己的紀錄存在」（以 response id 與 key 比對）。
    - 在目前環境下它會失敗，或者要標成 `xfail(strict)` 追蹤。
+
+## 後續：改用 `ollama_chat/`（2026-11-27 上午，已採用）
+
+- 先在 litellm 容器內用 SDK 直接試：
+  - 非串流的 id 變成 `chatcmpl-<UUID>`；
+  - 串流的每個 chunk 是不同的 UUID。
+- `infra/litellm/config.yaml` 的 `chat-default` 改為 `model: ollama_chat/qwen2.5:7b-instruct`、`api_base: http://ollama:11434`（原生 `/api/chat`）。embedding 維持 `openai/bge-m3`，它本來就用 UUID，不受影響。
+- 經 proxy 確認：
+  - 非串流 id 是 UUID，usage 正確；
+  - 串流 22 個 chunk 有 21 個不同的 id。這不符合 OpenAI 規格，是已知副作用，寫在 README 的已知限制。
+- `run3-ollama-chat.txt`：每組 20 筆。
+
+  | 類型 | 有紀錄 |
+  |---|---|
+  | 非串流 chat | **20/20** |
+  | 串流 chat | **20/20** |
+  | embedding | 20/20 |
+
+  串流紀錄的 `request_id` 等於第一個 chunk 的 id。
+- 測試：
+  - `test_spend_log_increments` 改寫為 `test_every_chat_has_its_own_spend_log_row`：臨時 key 送 3 筆非串流加 3 筆串流，6 個 response id 都必須在 spend log 中有這把 key 的 `acompletion` 紀錄，而且沒有多餘的。
+  - 反向驗證：把設定暫時還原成 `openai/` 時，這個測試失敗（抓到 6 個 `chatcmpl-<短數字>` id）。驗證完已改回。
+  - 另加 `test_chat_on_ollama_uses_native_provider`：只要 chat 的後端是 Ollama，就必須走 `ollama_chat/`，不能走 `/v1`。
+- 既有資料：之前漏記的 chat 無法補回，表中原有的 880 筆 `chatcmpl-<數字>` 紀錄保留，沒有刪除。
+

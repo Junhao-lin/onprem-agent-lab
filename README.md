@@ -175,7 +175,7 @@ python -m uv run pytest                       # 全部，約 5 分鐘
 |---|---|---|---|
 | postgres | platform | —（只在內網） | LiteLLM 的 key、spend、log |
 | redis | platform | —（只在內網） | LiteLLM 的限流計數（需密碼） |
-| ollama | platform | —（只在內網） | 推論後端（OpenAI 相容 API :11434），應用不得直接連線 |
+| ollama | platform | —（只在內網） | 推論後端（:11434；chat 走原生 `/api/chat`，embedding 走 OpenAI 相容的 `/v1`），應用不得直接連線 |
 | ollama-init | platform | — | 一次性工作：拉取 `OLLAMA_CHAT_MODEL`、`OLLAMA_EMBED_MODEL` |
 | litellm | platform | `127.0.0.1:4000` | LLM Gateway，應用唯一的入口（OpenAI 相容）；Admin UI 在 `/ui` |
 | qdrant | platform | —（只在內網；除錯方式見下方） | 向量庫（REST :6333、gRPC :6334），需 `api-key`，telemetry 已關閉 |
@@ -275,7 +275,7 @@ python -m uv run pytest tests/e2e                # 只跑 Grafana 瀏覽器檢�
 |---|---|
 | `tests/platform/test_repo_hygiene.py` | `.env` 與壓測結果不進版控；追蹤中的檔案沒有密鑰值；`.sh` 檔為 LF；image 都釘了版本；`.env` 與 gateway 的模型名一致；`env` fixture 不會洩漏密鑰；原始輸出一律經 `scripts/rawlog.py` 遮罩，`reports/` 底下沒有密鑰或未遮罩的 key |
 | `tests/platform/test_containers.py` | 服務都是 healthy、ollama-init 以 0 結束、**只有 gateway 與 Grafana 對 host 開 port，而且只綁 127.0.0.1**、使用 named volume、Redis 拒絕未認證連線、Qdrant telemetry 已關閉 |
-| `tests/platform/test_gateway.py` | readiness（db + redis）、錯誤的 key 回 401、模型清單只有別名、chat／串流／embedding（1024 維）、spend log 有寫入 |
+| `tests/platform/test_gateway.py` | readiness（db + redis）、錯誤的 key 回 401、模型清單只有別名、chat／串流／embedding（1024 維）、每一筆 chat（含串流）都有自己的 spend log 紀錄 |
 | `tests/platform/test_virtual_keys.py` | key 的限額與 `virtual-keys.toml` 一致、模型白名單、rpm／tpm／並發會觸發 429、限流計數存在 Redis、回應不被快取、bootstrap 可重複執行且輸出只含 `sk-…末4碼` |
 | `tests/platform/test_monitoring.py` | Prometheus 的 target 全部 up、Qdrant 的抓取使用 secret 檔、gateway 請求依 `api_key_alias` 出現在 Prometheus、Grafana 需要登入、資料來源已 provision 且健康、回報已關閉 |
 | `tests/platform/test_dashboards.py` | JSON 與產生器一致、Grafana 實際載入的就是 repo 版本、每個面板的查詢都能執行、真實應用的流量／429／TTFT 會出現在對應面板、閒置時 In-flight 為 0、固定配色規則；另有 1 個 `xfail(strict)` 測試追蹤 LiteLLM 的上游 bug |
@@ -353,7 +353,7 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
   - 計數的 TTL 為 60 秒，每次更新都會重設。
   - 目前以 `xfail(strict=True)` 測試追蹤，上游修正後測試會提醒；沒有加防護。總並發仍受 Ollama 的 `OLLAMA_NUM_PARALLEL` 硬上限保護。
   - 重現腳本與 issue 草稿（尚未送出）在 [`docs/upstream/litellm-parallel-counter.md`](docs/upstream/litellm-parallel-counter.md)。
-- **spend log 漏記 chat completion（原因已確認）**：Ollama 的 OpenAI 相容 API 回傳的 id 只有 `chatcmpl-<0–999>`，LiteLLM 拿它當 `LiteLLM_SpendLogs` 的主鍵，並以 `skip_duplicates` 寫入，所以 id 重複的 chat 紀錄會被靜默丟掉，表越滿漏得越多（串流與非串流都一樣；embedding 用 UUID，不受影響）。Prometheus 指標與儀表板不受影響。調查與重現在 [`reports/raw/spendlog/FINDINGS.md`](reports/raw/spendlog/FINDINGS.md)；昨晚另觀察到約 10 分鐘完全沒有寫入，見 [`reports/raw/incidents/spendlog-stall.txt`](reports/raw/incidents/spendlog-stall.txt)。
+- **串流 chunk 的 id 不一致（為修正 spend log 所付出的代價）**：Ollama 的 OpenAI 相容 API（`/v1`）回傳的 id 只有 `chatcmpl-<0–999>`，LiteLLM 拿它當 `LiteLLM_SpendLogs` 的主鍵，並以 `skip_duplicates` 寫入，所以 id 重複的 chat 紀錄會被靜默丟掉（實測一度只記到約 12%）。已把 `chat-default` 改用 LiteLLM 的 `ollama_chat/` provider（Ollama 原生 `/api/chat`），id 改成 UUID，每筆 chat 都會寫入，並由 `test_every_chat_has_its_own_spend_log_row` 檢查。副作用：串流回應中**每個 chunk 的 id 都不同**，不符合 OpenAI 規格（同一串流應共用一個 id）；只依 id 合併 chunk 的 client 會出錯。換成 vLLM 後改回 `openai/` 即可同時解決兩者。〈壓測與基準結果〉的數字是改用 `ollama_chat/` 之前、經 `/v1` 量測的。調查與重現在 [`reports/raw/spendlog/FINDINGS.md`](reports/raw/spendlog/FINDINGS.md)；昨晚另觀察到約 10 分鐘完全沒有寫入，見 [`reports/raw/incidents/spendlog-stall.txt`](reports/raw/incidents/spendlog-stall.txt)。
 
 **推論與監控**
 

@@ -1,0 +1,13 @@
+run 2026-11-27 11:58:45 temp key alias pytest-tmp-spendlog-1795751925; N=20 per group
+sent nonstream: statuses [200], 20 ok
+sent stream   : statuses [200], 20 ok
+sent embed    : statuses [200], 20 ok
+chat response ids: 40 (40 distinct); already present in the table from earlier requests: 0
+chat response id samples: ['16a175d8-c076-4fac-a19e-5ec74cbfc441', '212707ab-5086-4144-a64b-b128ada8168d', '26146b6e-8ec9-4bf5-af80-4631d47d194b', '2a72f1e6-abac-4f64-bf28-24582b8f5cf2', '304ce18c-665f-4733-83e4-981e90f5576e', '3c6df2bf-a7e0-4af9-920d-52c8d06b248a']
++    0s rows: []
++    5s rows: [['spend-embed', 'aembedding', '20'], ['spend-nonstream', 'acompletion', '20'], ['spend-stream', 'acompletion', '20']]
+chat ids NOT taken before: 40 -> logged for this key: 40
+chat ids already taken:    0 -> logged for this key: 0
+embeddings by x-litellm-call-id (uuid): 20/20 rows
+row shape (end_user, call_type, status, has_completion_tokens, request_id prefix): [['spend-nonstream', 'acompletion', 'success', 't', 'chatcmpl-'], ['spend-stream', 'acompletion', 'success', 't', 'e0942b36-'], ['spend-embed', 'aembedding', 'success', 'f', 'db933210-'], ['spend-nonstream', 'acompletion', 'success', 't', 'chatcmpl-'], ['spend-stream', 'acompletion', 'success', 't', 'a9f98ab2-'], ['spend-embed', 'aembedding', 'success', 'f', 'c5f87afe-']]
+cleanup: pytest-tmp-spendlog-1795751925 deleted = True
