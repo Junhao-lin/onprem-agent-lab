@@ -401,4 +401,3 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
   - 比較測試改為檢查 README 與報告都含有上面這句結論，而且都不再出現「結果一致」或 "results are consistent"。
   - 反向驗證：改錯 README 的下降區間，或改錯表格的一格時，對應的測試都會失敗。
 - **完整 pytest：176 passed, 1 xfailed**（`reports/raw/degradation-ollama-chat/pytest.txt`）。
-

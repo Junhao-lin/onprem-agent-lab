@@ -9,3 +9,7 @@ Dockerfile text eol=lf
 *.png binary
 *.jpg binary
 *.pdf binary
+
+# Raw tool output (pytest summary lines start with "======= "): do not flag them as
+# merge-conflict markers in git diff --check.
+reports/raw/** conflict-marker-size=32

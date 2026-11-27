@@ -13,12 +13,12 @@
  1286          Supports dynamic rate limiting based on deployment health.
  1287          """
  1288          verbose_proxy_logger.debug("Inside Rate Limit Pre-Call Hook")
- 1289  
+ 1289
  1290          #########################################################
 
 == litellm/proxy/hooks/parallel_request_limiter_v3.py lines 1589-1605
  1589          pipeline_operations: List[RedisPipelineIncrementOperation] = []
- 1590  
+ 1590
  1591          # API Key TPM
  1592          if user_api_key:
  1593              # MAX PARALLEL REQUESTS - only support for API Key, just decrement the counter
@@ -44,7 +44,7 @@
  1766              _get_parent_otel_span_from_kwargs,
  1767          )
  1768          from litellm.types.caching import RedisPipelineIncrementOperation
- 1769  
+ 1769
  1770          try:
  1771              litellm_parent_otel_span: Union[Span, None] = (
  1772                  _get_parent_otel_span_from_kwargs(kwargs)
@@ -54,9 +54,9 @@
  1776              standard_logging_object = kwargs.get("standard_logging_object") or {}
  1777              standard_logging_metadata = standard_logging_object.get("metadata") or {}
  1778              user_api_key = standard_logging_metadata.get("user_api_key_hash")
- 1779  
+ 1779
  1780              pipeline_operations: List[RedisPipelineIncrementOperation] = []
- 1781  
+ 1781
  1782              if user_api_key:
  1783                  # MAX PARALLEL REQUESTS - only support for API Key, just decrement the counter
  1784                  counter_key = self.create_rate_limit_keys(
@@ -71,7 +71,7 @@
  1793                          ttl=self.window_size,
  1794                      )
  1795                  )
- 1796  
+ 1796
  1797              # Execute all increments in a single pipeline
  1798              if pipeline_operations:
  1799                  await self.internal_usage_cache.dual_cache.async_increment_cache_pipeline(
@@ -91,7 +91,7 @@
  2782              team_id=team_id,
  2783          ):
  2784              return True
- 2785  
+ 2785
  2786      raise ProxyException(
  2787          message=f"{object_type} not allowed to access model. This {object_type} can only access models={models}. Tried to access {model}",
  2788          type=ProxyErrorTypes.get_model_access_error_type_for_object(
@@ -106,7 +106,7 @@
  1429                  ):
  1430                      if call_type == "call_mcp_tool" and user_api_key_dict is None:
  1431                          continue
- 1432  
+ 1432
  1433                      response = await _callback.async_pre_call_hook(
  1434                          user_api_key_dict=user_api_key_dict,
  1435                          cache=self.call_details["user_api_key_cache"],

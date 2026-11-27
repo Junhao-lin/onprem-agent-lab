@@ -147,6 +147,49 @@ def test_write_raw_masks_secrets_and_sk_tokens(tmp_path):
     assert "\r" not in text                                   # UTF-8 + LF
 
 
+def test_write_raw_leaves_no_trailing_whitespace(tmp_path):
+    out = tmp_path / "ws.txt"
+    _rawlog().write_raw(out, "a  \r\nb\t\n\n=======  2 passed  \n\n\n")
+    assert out.read_bytes() == b"a\nb\n\n=======  2 passed\n"
+
+
+def test_tracked_text_files_pass_git_diff_check():
+    """Same rules as `git diff --check`: no trailing whitespace, no blank lines at EOF
+    (Markdown hard breaks use a trailing backslash instead of two spaces)."""
+    files = subprocess.run(["git", "ls-files", "-z"], cwd=REPO, capture_output=True,
+                           check=True).stdout.decode("utf-8").split("\0")
+    bad = []
+    for rel in filter(None, files):
+        p = REPO / rel
+        if not p.is_file():
+            continue
+        data = p.read_bytes()
+        if not data or b"\0" in data[:4096]:
+            continue
+        lines = data.decode("utf-8", "replace").replace("\r\n", "\n").split("\n")
+        n = sum(1 for ln in lines if ln != ln.rstrip(" \t"))
+        if n:
+            bad.append(f"{rel}: {n} line(s) with trailing whitespace")
+        if data.replace(b"\r\n", b"\n").endswith(b"\n\n"):
+            bad.append(f"{rel}: blank line at EOF")
+    assert bad == [], bad
+
+
+def test_e2e_screenshot_goes_to_ignored_path():
+    """The e2e run re-takes its screenshot every time: it must land in a git-ignored
+    folder so the reviewed, committed 1.9 screenshot never changes."""
+    src = (REPO / "tests/e2e/test_grafana.py").read_text(encoding="utf-8")
+    out_dir = re.search(r'^OUT_DIR = REPO / "([^"]+)"', src, re.M).group(1)
+    shot = f"{out_dir}/platform-overview-kiosk.png"
+    reviewed = "reports/raw/1.9/platform-overview-kiosk.png"
+    assert shot != reviewed
+    ignored = subprocess.run(["git", "check-ignore", "-q", shot], cwd=REPO)
+    assert ignored.returncode == 0, f"{shot} is not git-ignored"
+    tracked = subprocess.run(["git", "ls-files", "--error-unmatch", reviewed], cwd=REPO,
+                             capture_output=True)
+    assert tracked.returncode == 0, "the reviewed 1.9 screenshot must stay committed"
+
+
 def test_rawlog_cli_masks_real_env_values(tmp_path):
     """The shell-pipeline form (`cmd | python -I scripts/rawlog.py FILE`) masks every .env
     secret. Secrets go in over stdin, never argv; failures report counts only."""

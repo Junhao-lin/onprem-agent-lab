@@ -72,9 +72,13 @@ def redact(text: str, secrets: list[str] | None = None) -> tuple[str, int]:
 
 
 def write_raw(path: Path | str, text: str, secrets: list[str] | None = None) -> int:
-    """Redact `text`, then write it to `path` (UTF-8, LF). Returns redaction count."""
+    """Redact `text`, then write it to `path` (UTF-8, LF, no trailing whitespace on any
+    line, at most one newline at the end, so `git diff --check` stays clean).
+    Returns redaction count."""
     path = Path(path)
     clean, hits = redact(text.replace("\r\n", "\n"), secrets)
+    clean = "\n".join(line.rstrip(" \t") for line in clean.split("\n")).rstrip("\n")
+    clean = clean + "\n" if clean else ""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(clean, encoding="utf-8", newline="\n")
     return hits

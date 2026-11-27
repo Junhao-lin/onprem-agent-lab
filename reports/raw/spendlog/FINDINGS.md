@@ -86,4 +86,3 @@
   - 反向驗證：把設定暫時還原成 `openai/` 時，這個測試失敗（抓到 6 個 `chatcmpl-<短數字>` id）。驗證完已改回。
   - 另加 `test_chat_on_ollama_uses_native_provider`：只要 chat 的後端是 Ollama，就必須走 `ollama_chat/`，不能走 `/v1`。
 - 既有資料：之前漏記的 chat 無法補回，表中原有的 880 筆 `chatcmpl-<數字>` 紀錄保留，沒有刪除。
-

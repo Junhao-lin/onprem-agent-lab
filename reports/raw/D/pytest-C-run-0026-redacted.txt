@@ -190,7 +190,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -232,7 +232,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -274,7 +274,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -316,7 +316,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -358,7 +358,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -400,7 +400,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -442,7 +442,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -484,7 +484,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -526,7 +526,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -568,7 +568,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -610,7 +610,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -652,7 +652,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -694,7 +694,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -736,7 +736,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -778,7 +778,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -820,7 +820,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -862,7 +862,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -904,7 +904,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -946,7 +946,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -988,7 +988,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -1030,7 +1030,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -1072,7 +1072,7 @@ probe_image = 'python:3.12.16-alpine3.24'
                 grafana, stream,
                 f'sum(litellm_llm_api_time_to_first_token_metric_count{{api_key_alias="{alias}"}})')
 
-tests\e2e\test_grafana.py:62: 
+tests\e2e\test_grafana.py:62:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357EA77E0>
@@ -1101,7 +1101,7 @@ grafana = <function grafana.<locals>.call at 0x0000020357F54040>
     @pytest.mark.llm
     def test_real_app_error_shows_in_failure_panels(env, gateway, grafana):
         """A metered error from a REAL app key (not pytest-tmp-*) reaches the panels.
-    
+
         Auth-stage 401s are not metered (test_auth_rejections_are_not_metered), so the
         error is a 429 from support-rag's own parallel limit: hold 2 slots, send a 3rd.
         support-rag is used because no test sends it auth-rejected requests, which
@@ -1109,12 +1109,12 @@ grafana = <function grafana.<locals>.call at 0x0000020357F54040>
         key = env["SUPPORT_RAG_LLM_KEY"]
         slots = SPECS_PARALLEL["support-rag"]
         counter = f'sum({bd.FAIL}{{api_key_alias="support-rag",exception_status="429"}})'
-    
+
         def overflow():
             assert hold_slots_then_overflow(gateway, key, slots) == [200] * slots + [429]
 >       twice_across_scrape(grafana, overflow, counter)
 
-tests\platform\test_dashboards.py:236: 
+tests\platform\test_dashboards.py:236:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 grafana = <function grafana.<locals>.call at 0x0000020357F54040>
