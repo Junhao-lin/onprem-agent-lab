@@ -272,6 +272,30 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
 - `bootstrap_keys.py --rotate`：兩把應用 key 換新（新的末 4 碼 `5dmg`、`pmKw`），舊 key 已刪除。驗證：舊 key 呼叫 `/v1/models` 回 **401**、新 key 回 **200**；`.env` 中只有這 4 個變數改變，其餘全部不變。
 - `docker compose up -d --force-recreate litellm` 重建容器，舊 log 已清掉（沒有使用 `down -v`，沒有刪除 volume）。
 - 重建後的 litellm log 跑過完整測試：`test_litellm_log_contains_no_keys` **通過**。
-- 完整 pytest：見第 3 項後的結果（重建 litellm 會讓 Prometheus counter 歸零，約 15 分鐘內 dashboard／e2e 測試會誤判，與昨晚相同的已知副作用；第一次執行 `1 failed, 22 errors` 全部是這個原因）。
+- 完整 pytest：**172 passed, 1 xfailed**（`reports/raw/morning/pytest.txt`，在第 3 項的改動之後執行，涵蓋第 1～3 項）。過程：
+  - 第 1 次：`1 failed, 22 errors`，全部是重建 litellm 後 Prometheus counter 歸零的已知副作用（約 15 分鐘）。
+  - 第 2 次（過了 15 分鐘）：剩 `test_in_flight_reads_zero_when_idle` 失敗，而且單獨重跑也穩定失敗。查到是**測試本身的時間 bug**，不是平台問題：
+    - 它用 range query 的最後一步讀面板值，但 step 對齊在 15 秒格線上，最後一步可能落在它等待的那次新 scrape **之前**，於是讀到前一個測試的串流（即時 gauge 在測試前 7 秒已回到閒置）。重建 litellm 改變了 scrape 的相位，所以昨晚通過、今天穩定失敗。
+    - 另外「等待新 scrape」其實沒有在等：它把 instant query 的 `value[0]`（評估時間，永遠是現在）當成 scrape 時間。
+    - 修正：用 `timestamp()` 取得真正的 scrape 時間，並在那個時間點以 instant query 評估面板。反向驗證：握著一個長串流時，面板讀到 1（測試仍抓得到真的 in-flight）。commit `f117c21`。
 - 改動前的 `.env` 備份在 scratchpad（repo 外），確認一切正常後會刪除。
+
+### 3. 清理歷史與原始輸出遮罩
+- 改寫範圍只有 `main..overnight`；`main` 仍是 `e25cac1`，沒有變動。
+- 方法：`git filter-branch --index-filter`，在每個 commit 中，若 `reports/raw/C/pytest.txt` 是含密碼的那個 blob，就換成 `4feff3a` 中已遮罩的版本（同一次測試的輸出，只是遮罩過）。實際只有原本的 `0e5830d` 含有它。改寫後分支最新的 tree 與改寫前完全相同（diff 為空），只有 commit hash 改變。
+- 刪除了 filter-branch 留下的備份 ref `refs/original/refs/heads/overnight`（它仍指向舊歷史）。另外，改寫時暫存工作區用的 stash 也會指到舊歷史，已 pop 掉。
+- **掃描結果**（逐一檢查每個 commit 的所有 blob 與 commit 訊息，比對舊與新的全部密鑰值；腳本只印變數名稱與路徑）：
+  - `main..overnight`：**沒有**任何舊密碼或完整 key。
+  - 所有 ref（`--all`）：也**沒有**。
+  - 另以 `sk-` 樣式掃描：只有 4 個 `sk-` 字串，都是測試原始碼裡自己定義的假 key（例如 401 測試用的錯誤 key），不是真實 key。
+- 仍需注意：舊物件還在本機的 reflog 裡，直到 reflog 過期或執行 `git gc` 才會真正消失。這屬於刪除資料，我沒有執行。舊密碼與舊 key 已全部失效（第 2 項），所以風險只剩「看得到已作廢的值」。要立刻清掉的話：`git reflog expire --expire=now --all && git gc --prune=now`。
+- **原始輸出一律先遮罩再寫檔**：
+  - 新模組 `scripts/rawlog.py`：`write_raw(path, text)` 先把所有 `.env` 密鑰值換成 `[REDACTED]`、`sk-` token 換成 `sk-…末4碼`，再以 UTF-8／LF 寫檔；另有 CLI 形式 `<指令> | python -I scripts/rawlog.py <檔案>`，取代 shell 的 `>` 與 `tee`。
+  - 改用它的寫檔程式：`scripts/overnight/run_pytest.py`、`run_codex.py`（含先前沒有遮罩的 `codex-prompt.md`）、`loadtest/bench.py`、`loadtest/repro_degradation.py`。
+  - 新測試（`tests/platform/test_repo_hygiene.py`）：
+    - `write_raw` 的遮罩單元測試（含 CRLF → LF）；
+    - CLI 實測：把 `.env` 的所有真實密鑰值經 stdin 送進去，輸出檔中一個都不剩（失敗時只報數量）；
+    - AST 靜態檢查：`scripts/`、`loadtest/`、`docs/` 底下任何 `write_text`／`write_bytes`／`open(..., "w"/"a"/"x")` 都必須經過 rawlog，例外清單附理由（rawlog 本身、寫 `.env` 的 bootstrap、寫 PNG 的截圖腳本）；另有測試確認偵測器抓得到每一種寫法；
+    - 掃描 `reports/` 底下所有檔案（含未追蹤的）：沒有任何 `.env` 密鑰值，也沒有未遮罩的 `sk-` token（測試原始碼自己定義的假 key 除外）。
+  - README〈安全性〉與測試表已更新。
 
