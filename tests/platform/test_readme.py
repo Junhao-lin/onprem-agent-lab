@@ -1,6 +1,8 @@
 """README (task 1.11): links, screenshot, commands and numbers stay true to the repo."""
 import csv
 import re
+
+import pytest
 import tomllib
 
 from conftest import REPO
@@ -76,6 +78,8 @@ def test_no_real_key_material(env):
 BENCH_OLD = REPO / "reports/raw/1.10/baseline-restart"      # openai/ via Ollama /v1
 BENCH_CURRENT = REPO / "reports/raw/1.10/ollama-chat-restart"  # ollama_chat/ via /api/chat
 BENCH_COMPARE_DOC = REPO / "docs/benchmarks/2026-11-27-ollama-chat.md"
+# Agreed wording of the provider before/after conclusion (README and report).
+CONCLUSION = "差異在 10% 以內、飽和點仍為並發 4；但新設定每一級吞吐皆略低 1–6.5%，方向一致，推測為 LiteLLM 轉換 Ollama 原生串流格式的開銷，尚未驗證（每種設定各只跑一輪）"
 
 
 def _bench_summary(run_dir):
@@ -119,11 +123,24 @@ def test_provider_comparison_matches_both_raw_runs():
             expected += [f"{a:{fmt}}", f"{b:{fmt}}", delta(a, b)]
         assert cells == expected, (c, cells, expected)
     # the README links the report and states the conclusion
-    assert BENCH_COMPARE_DOC.name in README and "已用新設定重測，結果一致" in README
+    assert BENCH_COMPARE_DOC.name in README
+    assert CONCLUSION in README and CONCLUSION in doc, "agreed conclusion wording missing"
+    assert "結果一致" not in README and "results are consistent" not in doc
 
 
-def test_ops_risk_numbers_match_degradation_data():
-    rows = list(csv.DictReader(open(REPO / "reports/raw/1.10/degradation/summary.csv", encoding="utf-8")))
+DEGRADATION_RUNS = {  # README label -> raw run dir
+    "`/v1`（舊）": REPO / "reports/raw/1.10/degradation",
+    "`ollama_chat/`（目前）": REPO / "reports/raw/1.10/degradation-ollama-chat",
+}
+
+
+def _degradation(run_dir):
+    return list(csv.DictReader(open(run_dir / "summary.csv", encoding="utf-8")))
+
+
+@pytest.mark.parametrize("label", list(DEGRADATION_RUNS))
+def test_ops_risk_numbers_match_degradation_data(label):
+    rows = _degradation(DEGRADATION_RUNS[label])
     tps = {(r["cycle"], r["step"]): float(r["throughput_tps"]) for r in rows}
     cycles = sorted({c for c, _ in tps})
     drops, degraded, partial = [], [], []
@@ -138,10 +155,27 @@ def test_ops_risk_numbers_match_degradation_data():
             else:
                 partial.append(t)
     assert len(degraded) >= 3 and len(partial) <= 1, tps
-    if partial:
-        assert "部分請求" in README
-    assert f"{min(drops)}–{max(drops)}%" in README, drops
-    assert f"{min(degraded):.0f}–{max(degraded):.0f} tok/s" in README, degraded
+    line = next((ln for ln in README.splitlines() if ln.strip().startswith(f"- {label}")), None)
+    assert line, f"README has no ops-risk line for {label}"
+    assert ("部分請求" in line) == bool(partial), line
+    assert f"{min(drops)}–{max(drops)}%" in line, (drops, line)
+    assert f"{min(degraded):.0f}–{max(degraded):.0f} tok/s" in line, (degraded, line)
+
+
+def test_degradation_comparison_matches_both_raw_runs():
+    """The old/new degradation table in the re-run report equals both summary.csv files."""
+    old, new = (
+        {(r["cycle"], int(r["concurrency"]), i % 7): r for i, r in enumerate(_degradation(d))}
+        for d in DEGRADATION_RUNS.values())
+    doc = BENCH_COMPARE_DOC.read_text(encoding="utf-8").replace("**", "")
+    rows = re.findall(r"^\| (\d) \| [a-z][^|]* \| (\d+) \| ([\d.]+) \| ([\d.]+) \| ([\d.]+) \| ([\d.]+) \|$",
+                      doc, re.M)
+    assert len(rows) == len(old) == len(new) == 14, rows
+    for i, (cy, c, dec_o, dec_n, thr_o, thr_n) in enumerate(rows):
+        o, n = old[(cy, int(c), i % 7)], new[(cy, int(c), i % 7)]
+        assert [dec_o, dec_n, thr_o, thr_n] == [
+            f"{float(o['decode_tps_p50']):.1f}", f"{float(n['decode_tps_p50']):.1f}",
+            f"{float(o['throughput_tps']):.1f}", f"{float(n['throughput_tps']):.1f}"], (i, rows[i])
 
 
 def test_key_limits_table_matches_toml():

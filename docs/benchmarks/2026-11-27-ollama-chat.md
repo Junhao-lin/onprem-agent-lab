@@ -78,16 +78,49 @@ only +2 % and +1 %. Read as noise, not as an effect of the provider. At c = 16, 
 follows from the slower decoding: queued requests wait for whole generations, and those
 take about 7 % longer (latency p50 +7.1 %).
 
-**Conclusion: re-measured with the new setting, results are consistent.** Throughput and
-per-request speed are within 10 % of the old numbers at every level, with a small systematic
-drop of about 1–6 %. TTFT changes are milliseconds of noise below saturation. Saturation point
-and capacity planning are unchanged.
+**Conclusion:** 差異在 10% 以內、飽和點仍為並發 4；但新設定每一級吞吐皆略低 1–6.5%，方向一致，推測為 LiteLLM 轉換 Ollama 原生串流格式的開銷，尚未驗證（每種設定各只跑一輪）。
 
-## Not re-run
+In English: the differences are within 10 %, and saturation is still at c = 4. But the new
+setting's throughput is 1–6.5 % lower at every level, always in the same direction. This is
+presumably the cost of LiteLLM converting Ollama's native stream format, which has not been
+verified (only one run per setting). TTFT changes below saturation are milliseconds of noise.
 
-- `loadtest/repro_degradation.py` (the c = 2 degradation after an overload). That state lives in
-  the Ollama process, so the provider change should not affect it, but this was not verified.
-  Its numbers in the baseline report are still from `/v1`.
+## Operational risk re-run: c = 2 degradation after an overload
+
+`python -I loadtest/repro_degradation.py` re-run with the new provider: 2 cycles, each step a
+separate `bench.py` run with its own temporary key, all deleted (no cleanup errors in the step
+logs). Raw files: `reports/raw/1.10/degradation-ollama-chat/`. The old run is in
+`reports/raw/1.10/degradation/` (2026-11-26, `/v1`).
+
+| Cycle | Step | c | Decode tok/s per req, old (`/v1`) | new (`ollama_chat`) | Throughput tok/s, old (`/v1`) | new (`ollama_chat`) |
+|---:|---|---:|---:|---:|---:|---:|
+| 1 | fresh (restart + warm-up) | 2 | 83.3 | 81.8 | **163.8** | **160.8** |
+| 1 | overload | 8 | 75.4 | 74.4 | 297.1 | 291.0 |
+| 1 | after overload, 1st run | 2 | 38.7 | 38.0 | **77.1** | **75.5** |
+| 1 | after overload, 2nd run | 2 | 38.9 | 38.0 | **77.4** | **76.0** |
+| 1 | after overload | 4 | 75.2 | 73.7 | 284.3 | 287.3 |
+| 1 | after overload | 1 | 90.0 | 87.1 | 89.1 | 86.2 |
+| 1 | restarted (restart + warm-up) | 2 | 84.1 | 81.0 | **165.7** | **159.2** |
+| 2 | fresh (restart + warm-up) | 2 | 84.1 | 80.5 | **165.6** | **159.1** |
+| 2 | overload | 8 | 73.7 | 73.7 | 290.3 | 290.6 |
+| 2 | after overload, 1st run | 2 | 83.3 | 38.0 | **128.8** | **75.6** |
+| 2 | after overload, 2nd run | 2 | 38.9 | 38.6 | **89.3** | **77.0** |
+| 2 | after overload | 4 | 76.0 | 73.9 | 296.1 | 289.1 |
+| 2 | after overload | 1 | 90.0 | 85.5 | 89.0 | 85.1 |
+| 2 | restarted (restart + warm-up) | 2 | 84.1 | 78.7 | **165.3** | **154.8** |
+
+- **Still reproduces, and somewhat more clearly than before.** In both cycles, every request in both c = 2
+  runs after the overload is degraded: 37.4–38.9 tok/s per request, vs ~80 fresh. 2-stream
+  throughput drops from 159–161 to 75–77 tok/s (**−52 % to −53 %**). With `/v1` it was −46 % to
+  −53 %, with one partial onset (128.8 tok/s in cycle 2, 1st run). This time there was no partial
+  onset.
+- **Same pattern otherwise.** TTFT stays normal (≤ 0.07 s), so the slowdown is in decoding.
+  c = 1 (85–87 tok/s) and c = 4 (287–289 tok/s) are not affected. Restarting only Ollama brings
+  c = 2 back to 155–159 tok/s.
+- **Conclusion:** the failure mode does not depend on which Ollama API the gateway uses
+  (`/v1` or `/api/chat`). This is consistent with the earlier finding that the state lives in the
+  Ollama process. The fresh c = 2 reference is ~3 % lower than with `/v1` (159–161 vs 164–166),
+  in line with the sweep above.
 
 ## Caveats
 

@@ -371,3 +371,34 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
   - 第一次跑有 1 個失敗：README 表格已換成新數字，但測試仍比對舊資料。修正測試後通過。
 - **沒有重跑**：`repro_degradation.py`（超載後的 c=2 退化）。README 已註明這部分仍是 `/v1` 的數字。要不要重跑，由你決定。
 
+### 7. 用 `ollama_chat/` 重跑 `repro_degradation.py`，並修改結論措辭
+- **重跑**：
+  - 指令是 `python -I loadtest/repro_degradation.py`，共 2 輪、每輪 7 步。
+  - 每一步都是獨立的 `bench.py` 執行，各用一把臨時 key，全部已刪除，步驟 log 中沒有刪除失敗的紀錄。
+  - 原始資料在 `reports/raw/1.10/degradation-ollama-chat/`。
+- **結果**：退化仍然重現，而且比舊設定更一致。
+
+  | | `/v1`（舊） | `ollama_chat/`（目前） |
+  |---|---|---|
+  | 超載後 c=2 總吞吐 | 下降 46–53%（約 165 → 77–89 tok/s） | 下降 52–53%（約 159–161 → 75–77 tok/s） |
+  | 退化出現方式 | 有一輪剛超載時只有部分請求變慢 | 兩輪都是超載後立即全部變慢 |
+
+  - 其他現象與舊設定相同：TTFT 正常；並發 1 與並發 4 不受影響；只重啟 Ollama 就恢復。
+  - 結論：這個問題與 gateway 走哪一個 Ollama API 無關，符合「狀態在 Ollama process 內」的判斷。
+- **文件**：
+  - `docs/benchmarks/2026-11-27-ollama-chat.md` 原本的「Not re-run」段落，改為新舊並列的退化表（14 步）與解讀。
+  - README 的維運風險改為並列兩種設定的數字。
+  - 舊基準報告的開頭註記也一併更新。
+- **措辭**：依你的指示，README 與報告都不再寫「結果一致」，改為：
+
+  > 差異在 10% 以內、飽和點仍為並發 4；但新設定每一級吞吐皆略低 1–6.5%，方向一致，推測為 LiteLLM 轉換 Ollama 原生串流格式的開銷，尚未驗證（每種設定各只跑一輪）
+
+  - 報告是英文，所以這句原文放在 Conclusion，後面附英文翻譯。
+  - 上面第 6 段的「結果一致」是當時的紀錄，保留不改。
+- **測試**：
+  - `test_ops_risk_numbers_match_degradation_data` 改為對兩份資料參數化。README 中每一種設定的下降區間、tok/s 區間，以及有沒有「部分請求」，都必須和各自的原始資料一致。
+  - 新增 `test_degradation_comparison_matches_both_raw_runs`：報告中並列表的 14 列都必須和兩份 `summary.csv` 一致。
+  - 比較測試改為檢查 README 與報告都含有上面這句結論，而且都不再出現「結果一致」或 "results are consistent"。
+  - 反向驗證：改錯 README 的下降區間，或改錯表格的一格時，對應的測試都會失敗。
+- **完整 pytest：176 passed, 1 xfailed**（`reports/raw/degradation-ollama-chat/pytest.txt`）。
+
