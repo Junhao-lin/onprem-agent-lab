@@ -325,3 +325,22 @@ ac86f58 feat(gateway): expose Prometheus metrics from LiteLLM
   - `python -m uv run pytest`：預期 172 passed, 1 xfailed。剛重建 litellm 後的 15 分鐘內，dashboard 與 e2e 測試會誤判。
   - `docker compose logs litellm | findstr sk-`：預期沒有輸出。
 
+### 5. spend log 修正：改用 `ollama_chat/`（有效，已採用）
+- **驗證**：
+  - 先在 litellm 容器內用 SDK 試：非串流的 id 變成 `chatcmpl-<UUID>`。
+  - 再改 proxy 設定：`chat-default` 改為 `ollama_chat/qwen2.5:7b-instruct`，`api_base` 改為 `http://ollama:11434`（Ollama 原生 `/api/chat`）。embedding 維持 `openai/bge-m3`，它本來就是 UUID。
+  - 用臨時 key 每組送 20 筆：非串流 chat **20/20**、串流 chat **20/20**、embedding 20/20 都有 spend log 紀錄（`reports/raw/spendlog/run3-ollama-chat.txt`）。
+- **測試加嚴**：
+  - `test_spend_log_increments` 改寫為 `test_every_chat_has_its_own_spend_log_row`：臨時 key 送 3 筆非串流加 3 筆串流，每一個 response id 都必須在 spend log 中有這把 key 自己的紀錄，而且沒有多餘的。
+  - 反向驗證：暫時還原成 `openai/` 時，這個測試會失敗（抓到 6 個 `chatcmpl-<短數字>` id）。
+  - 另加 `test_chat_on_ollama_uses_native_provider`：只要 chat 的後端是 Ollama，就不得走 `/v1`。
+- **完整 pytest：173 passed, 1 xfailed**（`reports/raw/morning-ollama-chat/pytest.txt`；等 litellm 重啟滿 15 分鐘後才執行）。
+- **副作用（已寫進 README 已知限制）**：
+  - 走 `ollama_chat/` 時，串流回應中**每個 chunk 的 id 都不同**（實測 22 個 chunk 有 21 個 id），不符合 OpenAI 規格；只依 id 合併 chunk 的 client 會出錯。
+  - 換成 vLLM 後改回 `openai/`，就能同時解決這個問題與 spend log 碰撞。
+- **需要你知道的事**：
+  - 〈壓測與基準結果〉的數字是改用 `ollama_chat/` 之前、經 `/v1` 量測的，沒有重新量測。README 已註明。要不要重跑基準，由你決定。
+  - 表中舊的 880 筆 `chatcmpl-<數字>` 紀錄保留，沒有刪除；之前漏記的 chat 無法補回。
+- 依你的指示，因為改用 `ollama_chat/` 有效，所以**沒有**寫 docs/upstream 的 issue 草稿。
+- commit：`5927ff7`（設定、測試與文件），以及本段總結。
+
