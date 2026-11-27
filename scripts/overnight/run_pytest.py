@@ -16,7 +16,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from run_codex import redact, secret_values  # noqa: E402
+sys.path.insert(0, str(REPO / "scripts"))
+from rawlog import write_raw  # noqa: E402
 
 
 def main() -> int:
@@ -28,8 +29,7 @@ def main() -> int:
     proc = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, encoding="utf-8",
                           errors="replace")
     header = f"$ {' '.join(cmd[1:])}\n# started {started}, exit code {proc.returncode}\n\n"
-    text, hits = redact(header + proc.stdout + proc.stderr, secret_values())
-    out.write_text(text, encoding="utf-8", newline="\n")
+    hits = write_raw(out, header + proc.stdout + proc.stderr)
     print(f"{out.relative_to(REPO)}: exit {proc.returncode}; redacted {hits}; "
           f"{proc.stdout.strip().splitlines()[-1]}")
     return proc.returncode

@@ -273,7 +273,7 @@ python -m uv run pytest tests/e2e                # 只跑 Grafana 瀏覽器檢�
 
 | 檔案 | 驗證內容 |
 |---|---|
-| `tests/platform/test_repo_hygiene.py` | `.env` 與壓測結果不進版控；追蹤中的檔案沒有密鑰值；`.sh` 檔為 LF；image 都釘了版本；`.env` 與 gateway 的模型名一致；`env` fixture 與 pytest 輸出 wrapper 不會洩漏密鑰 |
+| `tests/platform/test_repo_hygiene.py` | `.env` 與壓測結果不進版控；追蹤中的檔案沒有密鑰值；`.sh` 檔為 LF；image 都釘了版本；`.env` 與 gateway 的模型名一致；`env` fixture 不會洩漏密鑰；原始輸出一律經 `scripts/rawlog.py` 遮罩，`reports/` 底下沒有密鑰或未遮罩的 key |
 | `tests/platform/test_containers.py` | 服務都是 healthy、ollama-init 以 0 結束、**只有 gateway 與 Grafana 對 host 開 port，而且只綁 127.0.0.1**、使用 named volume、Redis 拒絕未認證連線、Qdrant telemetry 已關閉 |
 | `tests/platform/test_gateway.py` | readiness（db + redis）、錯誤的 key 回 401、模型清單只有別名、chat／串流／embedding（1024 維）、spend log 有寫入 |
 | `tests/platform/test_virtual_keys.py` | key 的限額與 `virtual-keys.toml` 一致、模型白名單、rpm／tpm／並發會觸發 429、限流計數存在 Redis、回應不被快取、bootstrap 可重複執行且輸出只含 `sk-…末4碼` |
@@ -335,7 +335,7 @@ python loadtest/repro_degradation.py            # 重現「超載後吞吐退化
   - 完整的 key 只寫進 `.env`。
 - 測試輸出也防止洩漏密鑰：
   - `env` fixture 的 repr 只顯示變數名稱；
-  - `scripts/overnight/run_pytest.py` 寫出的測試紀錄，會先遮蔽所有 `.env` 的值。
+  - `reports/raw/` 與壓測結果等原始輸出一律經 `scripts/rawlog.py` 遮罩後才寫檔（所有 `.env` 密鑰值換成 `[REDACTED]`、`sk-` token 換成 `sk-…末4碼`）；shell 指令的輸出用 `<指令> | python -I scripts/rawlog.py <檔案>` 取代 `>` 或 `tee`。測試會靜態檢查寫檔程式都經過它，並掃描 `reports/` 底下所有檔案。
 - key 只放在 `Authorization` header 或 JSON body，不放在 URL query：LiteLLM 的 access log 會記下完整的請求行。查詢某把 key 的資訊時，用該 key 本身呼叫 `GET /key/info`（不帶 `?key=`）。`tests/platform/test_container_logs.py` 在完整測試的最後掃描 `docker compose logs litellm`，確認沒有任何 key。
 - 只有 Gateway 與 Grafana 對 host 開放，而且只綁 `127.0.0.1`。Postgres、Redis、Ollama、Qdrant、Prometheus 預設都不對 host 開 port（除錯用的 override 見〈服務與 Port〉）。
 - LiteLLM 的 `/metrics/` 不需要驗證，Prometheus 因此不必持有 master key。也因為這樣，它只能從內網與本機 loopback 存取。

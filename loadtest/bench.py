@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures as cf
 import csv
+import io
 import json
 import math
 import os
@@ -46,6 +47,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "scripts"))
+from rawlog import write_raw  # noqa: E402  (every output file is masked before writing)
+
 PROMPTS_FILE = Path(__file__).resolve().parent / "prompts.jsonl"
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
@@ -53,6 +57,15 @@ RESULTS_DIR = Path(__file__).resolve().parent / "results"
 # --------------------------------------------------------------------------
 # helpers
 # --------------------------------------------------------------------------
+def csv_text(fieldnames: list[str], rows) -> str:
+    """CSV as a string (LF rows), so it can go through rawlog.write_raw."""
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore", lineterminator="\n")
+    w.writeheader()
+    w.writerows(rows)
+    return buf.getvalue()
+
+
 def load_env(path: Path) -> dict[str, str]:
     env: dict[str, str] = {}
     if path.exists():
@@ -387,18 +400,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"ERROR: temporary key {temp_alias} could not be deleted; remove it with "
                   f"POST /key/delete {{\"key_aliases\": [\"{temp_alias}\"]}}", file=sys.stderr)
 
-    with open(out / "requests.csv", "w", newline="", encoding="utf-8") as f:
-        cols = [k for k in asdict(Result(0, 0, 0, False)) if k != "started_at"]
-        w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
-        w.writeheader()
-        w.writerows(asdict(r) for r in all_results)
-    with open(out / "summary.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=list(asdict(summaries[0]).keys()) if summaries else [])
-        w.writeheader()
-        w.writerows(asdict(s) for s in summaries)
-    (out / "summary.md").write_text(render_markdown(meta, summaries), encoding="utf-8", newline="\n")
-    (out / "environment.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n",
-                                          encoding="utf-8", newline="\n")
+    cols = [k for k in asdict(Result(0, 0, 0, False)) if k != "started_at"]
+    write_raw(out / "requests.csv", csv_text(cols, (asdict(r) for r in all_results)))
+    write_raw(out / "summary.csv", csv_text(list(asdict(summaries[0]).keys()) if summaries else [],
+                                            (asdict(s) for s in summaries)))
+    write_raw(out / "summary.md", render_markdown(meta, summaries))
+    write_raw(out / "environment.json", json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
     print(f"wrote {out / 'summary.md'}")
     if cleanup_failed:
         return 3

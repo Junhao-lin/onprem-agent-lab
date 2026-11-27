@@ -1,6 +1,7 @@
 """Repo / secret hygiene (tasks 1.1, 1.4, 1.5). No running stack needed."""
 import re
 import subprocess
+import sys
 import tomllib
 
 import pytest
@@ -108,3 +109,119 @@ def test_pytest_wrapper_redacts_secrets():
     secrets = rc.secret_values()
     text, hits = rc.redact("tb: env = " + " ".join(secrets) + " key='sk-abcdefghijkl1234'", secrets)
     assert hits >= len(secrets) and not any(s in text for s in secrets) and "sk-…1234" in text
+
+
+# --- raw evidence is always masked before it is written (scripts/rawlog.py) -------------
+
+def _rawlog():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("rawlog", REPO / "scripts/rawlog.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_write_raw_masks_secrets_and_sk_tokens(tmp_path):
+    rawlog = _rawlog()
+    fake = ["fake-password-1234567890", "fake-salt-abcdefghijkl"]
+    out = tmp_path / "sub" / "out.txt"
+    hits = rawlog.write_raw(out, "pw=fake-password-1234567890\r\nsalt=fake-salt-abcdefghijkl "
+                                 "key=sk-ABCDEFGHijklmnop9876\n", fake)
+    text = out.read_bytes().decode("utf-8")
+    assert hits == 3
+    assert not any(s in text for s in fake) and text.count("[REDACTED]") == 2
+    assert "sk-…9876" in text and "ABCDEFGH" not in text
+    assert "\r" not in text                                   # UTF-8 + LF
+
+
+def test_rawlog_cli_masks_real_env_values(tmp_path):
+    """The shell-pipeline form (`cmd | python -I scripts/rawlog.py FILE`) masks every .env
+    secret. Secrets go in over stdin, never argv; failures report counts only."""
+    rawlog = _rawlog()
+    secrets = rawlog.secret_values()
+    assert len(secrets) >= 8                                  # every SECRET_VARS entry is covered
+    assert all(secret_values()[k] in secrets for k in secret_values()), "a SECRET_VARS value is not masked"
+    out = tmp_path / "cli.txt"
+    payload = ("traceback: " + " | ".join(secrets) + "\n").encode("utf-8")
+    r = subprocess.run([sys.executable, "-I", str(REPO / "scripts/rawlog.py"), str(out)],
+                       input=payload, capture_output=True, timeout=60)
+    assert r.returncode == 0
+    text = out.read_text(encoding="utf-8")
+    leaked = sum(s in text for s in secrets)
+    assert leaked == 0, f"{leaked} secret value(s) survived the CLI"
+    assert text.count("[REDACTED]") >= len(secrets)
+
+
+# Files under scripts/, loadtest/ and docs/ that may write a file without rawlog, and why.
+DIRECT_WRITE_ALLOWED = {
+    "scripts/rawlog.py": "the masked writer itself",
+    "scripts/bootstrap_keys.py": "writes .env (the secret store), never evidence",
+    "scripts/screenshot_dashboard.py": "PNG screenshot (binary image)",
+}
+
+
+def _direct_writes(path):
+    """Calls that write a file without rawlog: .write_text/.write_bytes, or open() with
+    a w/a/x mode (positional or mode=)."""
+    import ast
+    found = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if not isinstance(node, ast.Call):
+            continue
+        f = node.func
+        if isinstance(f, ast.Attribute) and f.attr in ("write_text", "write_bytes"):
+            found.append((node.lineno, f.attr))
+        elif (isinstance(f, ast.Name) and f.id == "open") or (isinstance(f, ast.Attribute) and f.attr == "open"):
+            modes = [a for a in node.args[1:2]] + [k.value for k in node.keywords if k.arg == "mode"]
+            if any(isinstance(m, ast.Constant) and isinstance(m.value, str) and set(m.value) & set("wax")
+                   for m in modes):
+                found.append((node.lineno, "open"))
+    return found
+
+
+def test_raw_writers_go_through_rawlog():
+    files = [p for d in ("scripts", "loadtest", "docs") for p in (REPO / d).rglob("*.py")]
+    assert len(files) >= 8
+    offenders = {}
+    for p in files:
+        rel = p.relative_to(REPO).as_posix()
+        hits = _direct_writes(p)
+        if hits and rel not in DIRECT_WRITE_ALLOWED:
+            offenders[rel] = hits
+    assert offenders == {}, f"write evidence via scripts/rawlog.py write_raw instead: {offenders}"
+    # the known evidence writers really use it
+    for rel in ("scripts/overnight/run_pytest.py", "scripts/overnight/run_codex.py",
+                "loadtest/bench.py", "loadtest/repro_degradation.py"):
+        assert "write_raw(" in (REPO / rel).read_text(encoding="utf-8"), rel
+
+
+def test_direct_write_detector_catches_each_form(tmp_path):
+    p = tmp_path / "w.py"
+    p.write_text("from pathlib import Path\nPath('a').write_text('x')\nopen('b', 'w')\n"
+                 "open('c', mode='a')\nimport io\nio.open('d', 'wb')\nopen('e')\nopen('f', 'r')\n",
+                 encoding="utf-8")
+    assert [h[0] for h in _direct_writes(p)] == [2, 3, 4, 6]
+
+
+def test_reports_contain_no_secrets_or_unmasked_keys():
+    """Everything under reports/ (tracked or not): no .env secret value, and no sk- token
+    except the fake keys that the test sources themselves define."""
+    rawlog = _rawlog()
+    secrets = rawlog.secret_values()
+    fake_literals = set()
+    for t in (REPO / "tests").rglob("*.py"):
+        fake_literals |= set(rawlog.SK_TOKEN.findall(t.read_text(encoding="utf-8")))
+    files = [p for p in (REPO / "reports").rglob("*") if p.is_file()]
+    assert len(files) > 20
+    with_secret, with_key = [], []
+    for p in files:
+        data = p.read_bytes()
+        if b"\0" in data[:4096]:                              # binary (PNG screenshots)
+            continue
+        text = data.decode("utf-8", "replace")
+        if any(s in text for s in secrets):
+            with_secret.append(p.relative_to(REPO).as_posix())
+        if set(rawlog.SK_TOKEN.findall(text)) - fake_literals:
+            with_key.append(p.relative_to(REPO).as_posix())
+    assert with_secret == [], f"files with an .env secret value: {with_secret}"
+    assert with_key == [], f"files with an unmasked sk- token: {with_key}"

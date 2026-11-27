@@ -24,6 +24,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(REPO / "scripts"))
+from bench import csv_text  # noqa: E402
+from rawlog import write_raw  # noqa: E402  (every output file is masked before writing)
 STEPS = [  # name, concurrency, restart before
     ("fresh", 2, True),
     ("overload", 8, False),
@@ -54,7 +58,7 @@ def main() -> int:
                 cmd.append("--restart-backend")
             print(f"[cycle {cycle}] {name}: c={c}{' (restart)' if restart else ''}", flush=True)
             proc = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, encoding="utf-8")
-            (args.out / f"cycle{cycle}-{name}.log").write_text(proc.stdout + proc.stderr, encoding="utf-8")
+            write_raw(args.out / f"cycle{cycle}-{name}.log", proc.stdout + proc.stderr)
             if proc.returncode != 0:
                 print(proc.stdout[-2000:] + proc.stderr[-2000:])
                 return proc.returncode
@@ -66,17 +70,14 @@ def main() -> int:
                   f"decode p50 {float(r['decode_tps_p50']):.1f} tok/s/req, TTFT p95 {float(r['ttft_p95_s']):.3f} s",
                   flush=True)
 
-    with open(args.out / "summary.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=COLS)
-        w.writeheader()
-        w.writerows(rows)
+    write_raw(args.out / "summary.csv", csv_text(COLS, rows))
     lines = ["| Cycle | Step | c | OK | TTFT p95 | Latency p50 | Decode tok/s p50 (per req) | Throughput tok/s (all) |",
              "|---:|---|---:|---:|---:|---:|---:|---:|"]
     for r in rows:
         lines.append(f"| {r['cycle']} | {r['step']} | {r['concurrency']} | {r['ok']}/{r['requests']} | "
                      f"{float(r['ttft_p95_s']):.3f} s | {float(r['latency_p50_s']):.2f} s | "
                      f"{float(r['decode_tps_p50']):.1f} | {float(r['throughput_tps']):.1f} |")
-    (args.out / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_raw(args.out / "summary.md", "\n".join(lines) + "\n")
     print("\n".join(lines))
     return 0
 
