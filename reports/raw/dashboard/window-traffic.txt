@@ -1,0 +1,13 @@
+window: last 7m before 2026-11-27 07:30:32 UTC (15:30:32 +0800 local)
+
+[requests] sum by (api_key_alias) (increase(litellm_proxy_total_requests_metric_total[7m]))
+  api_key_alias=onboarding-agent: 104.7
+  api_key_alias=support-rag: 209.5
+
+[failed] sum by (api_key_alias, exception_status) (increase(litellm_proxy_failed_requests_metric_total[7m]))
+  (nothing)
+
+[qdrant_rest] sum by (endpoint) (increase(rest_responses_total[7m]))
+  (nothing)
+
+verdict: ONLY production app traffic, no failures (app requests ~314; other: none; failures: none)

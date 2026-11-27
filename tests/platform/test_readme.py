@@ -178,6 +178,75 @@ def test_degradation_comparison_matches_both_raw_runs():
             f"{float(o['throughput_tps']):.1f}", f"{float(n['throughput_tps']):.1f}"], (i, rows[i])
 
 
+BENCH_REPORTS = {  # report -> raw run whose summary.md its "## Results" table was copied from
+    REPO / "docs/benchmarks/2026-11-26-baseline.md": BENCH_OLD,
+    BENCH_COMPARE_DOC: BENCH_CURRENT,
+}
+
+
+def _results_rows(md: str) -> list[str]:
+    """Data rows of the first table after '## Results'."""
+    part = md.split("## Results", 1)[1]
+    rows = [ln for ln in part.splitlines() if ln.startswith("| ")]
+    head = next(i for i, ln in enumerate(rows) if ln.startswith("| Concurrency"))
+    out = []
+    for ln in rows[head + 1:]:
+        if not re.match(r"^\| \d+ \|", ln):
+            break
+        out.append(ln)
+    return out
+
+
+@pytest.mark.parametrize("report", list(BENCH_REPORTS), ids=lambda p: p.name)
+def test_benchmark_report_results_match_raw_summary(report):
+    """Each benchmark report's Results table is the raw run's summary.md table, row for row."""
+    doc = _results_rows(report.read_text(encoding="utf-8"))
+    raw = _results_rows((BENCH_REPORTS[report] / "summary.md").read_text(encoding="utf-8"))
+    assert len(doc) == 5 and doc == raw, (report.name, doc, raw)
+
+
+def test_baseline_degradation_and_back_to_back_tables_match_raw():
+    """The /v1 baseline report's Operational-risk table and back-to-back table vs their CSVs."""
+    doc = (REPO / "docs/benchmarks/2026-11-26-baseline.md").read_text(encoding="utf-8").replace("**", "")
+    raw = _degradation(DEGRADATION_RUNS["`/v1`（舊）"])
+    rows = re.findall(r"^\| (\d) \| [a-z][^|]* \| (\d+) \| ([\d.]+) s \| ([\d.]+) s \| ([\d.]+) \| ([\d.]+) \|$",
+                      doc, re.M)
+    assert len(rows) == len(raw) == 14, rows
+    for (cy, c, ttft95, lat50, dec, thr), r in zip(rows, raw):
+        assert (cy, c) == (r["cycle"], r["concurrency"])
+        assert [ttft95, lat50, dec, thr] == [
+            f"{float(r['ttft_p95_s']):.3f}", f"{float(r['latency_p50_s']):.2f}",
+            f"{float(r['decode_tps_p50']):.1f}", f"{float(r['throughput_tps']):.1f}"], (cy, r["step"])
+
+    b2b = _bench_summary(REPO / "reports/raw/1.10/back-to-back-sweep")
+    thr = re.search(r"^\| Throughput tok/s, back-to-back sweep \|(.+)\|$", doc, re.M).group(1)
+    ttft = re.search(r"^\| TTFT p95, back-to-back sweep \|(.+)\|$", doc, re.M).group(1)
+    assert [x.strip() for x in thr.split("|")] == [f"{float(b2b[c]['throughput_tps']):.1f}" for c in sorted(b2b)]
+    assert [x.strip() for x in ttft.split("|")] == [f"{float(b2b[c]['ttft_p95_s']):.3f} s" for c in sorted(b2b)]
+
+
+@pytest.mark.parametrize("path", ["tests/platform", "tests/e2e"])
+def test_readme_test_counts_match_collection(path):
+    """The per-path test counts in the README are what pytest actually collects."""
+    import subprocess
+    import sys
+    out = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", path],
+                         cwd=REPO, capture_output=True, text=True, encoding="utf-8", timeout=120).stdout
+    collected = int(re.search(r"^(\d+) tests? collected", out, re.M).group(1))
+    row = re.search(rf"^\| `{path}` \| (\d+)", README, re.M)
+    assert row, f"README has no test-count row for {path}"
+    assert int(row.group(1)) == collected, (path, row.group(1), collected)
+    total = re.search(r"^\| 全部（`tests`） \| (\d+)", README, re.M)
+    rows = [int(n) for n in re.findall(r"^\| `tests/(?:platform|e2e)` \| (\d+)", README, re.M)]
+    assert total and int(total.group(1)) == sum(rows)
+    xfails = sum(len(re.findall(r"^@pytest\.mark\.xfail\b", src, re.M)) for src in
+                 (f.read_text(encoding="utf-8") for f in (REPO / "tests/platform").glob("test_*.py")))
+    platform = int(re.search(r"^\| `tests/platform` \| (\d+)", README, re.M).group(1))
+    e2e = int(re.search(r"^\| `tests/e2e` \| (\d+)", README, re.M).group(1))
+    assert f"「{platform - xfails} passed, {xfails} xfailed」" in README
+    assert f"「{platform + e2e - xfails} passed, {xfails} xfailed」" in README
+
+
 def test_key_limits_table_matches_toml():
     keys = tomllib.loads((REPO / "infra/litellm/virtual-keys.toml").read_text(encoding="utf-8"))["keys"]
     for alias, k in keys.items():

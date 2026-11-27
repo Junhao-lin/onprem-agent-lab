@@ -8,6 +8,11 @@ saves the screenshot if every panel shows data: no "No data" text, no empty
 stat value, every time-series legend row numeric, and a non-zero Max in each
 time-series panel except the error panel (zero errors is a valid reading). Generate traffic first, e.g. `python loadtest/app_traffic.py`.
 Exit code 1 (and no file written) if a panel is empty.
+
+--allow-idle-qdrant exempts the Qdrant panels (title starts with "Qdrant") from
+the data checks. Use it for a screenshot of app traffic only: no app calls
+Qdrant yet (phase 2), so with no test traffic in the range those panels are
+legitimately empty. The exempted panels are printed.
 """
 from __future__ import annotations
 
@@ -38,16 +43,19 @@ def load_env() -> dict[str, str]:
     return env
 
 
-def problems(page) -> list[str]:
+def problems(page, idle_ok=lambda title: False) -> list[str]:
     found = []
     for i in range(page.get_by_text(EMPTY_TEXT).count()):
         title = page.get_by_text(EMPTY_TEXT).nth(i).evaluate(
             "e => e.closest('[data-viz-panel-key]')?.querySelector('h2')?.textContent ?? '?'")
-        found.append(f"{title}: 'No data'")
+        if not idle_ok(title.strip()):
+            found.append(f"{title}: 'No data'")
     panels = page.locator("[data-viz-panel-key]")
     for i in range(panels.count()):
         p = panels.nth(i)
         title = p.locator("h2").first.inner_text().strip()
+        if idle_ok(title):
+            continue
         legend = p.locator("[data-testid='data-testid viz-layout-legend'] tbody tr")
         if legend.count():                                    # time series
             maxima = []
@@ -73,7 +81,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--range", default="10m", help="time range ending now (default 10m)")
     ap.add_argument("--out", type=Path, default=REPO / "docs/images/dashboard.png")
+    ap.add_argument("--allow-idle-qdrant", action="store_true",
+                    help="do not require data in the Qdrant panels (app-traffic-only screenshot)")
     args = ap.parse_args()
+
+    def idle_ok(title: str) -> bool:
+        return args.allow_idle_qdrant and title.startswith("Qdrant")
     env = load_env()
     base = f"http://127.0.0.1:{env.get('GRAFANA_PORT', '3000')}"
 
@@ -94,7 +107,10 @@ def main() -> int:
         page.wait_for_selector("[data-viz-panel-key]", timeout=30_000)
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(2_000)
-        issues = problems(page)
+        issues = problems(page, idle_ok)
+        if args.allow_idle_qdrant:
+            print("exempt from data checks (--allow-idle-qdrant):",
+                  sorted(t for t in page.locator("[data-viz-panel-key] h2").all_inner_texts() if idle_ok(t.strip())))
         n = page.locator("[data-viz-panel-key]").count()
         with tempfile.TemporaryDirectory() as tmp:
             shot = Path(tmp) / "dashboard.png"

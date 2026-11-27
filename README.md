@@ -4,13 +4,14 @@
 
 > 🚧 開發中。目前進度：**Phase 1（平台）完成**。Phase 2（客服 RAG）、Phase 3（教學 Agent）尚未開始。
 
-![Platform overview 儀表板：以正式應用 key 跑 5 分鐘流量後的畫面](docs/images/dashboard.png)
+![Platform overview 儀表板：只有兩把正式應用 key 的一般流量時的畫面](docs/images/dashboard.png)
 
 <sub>截圖說明：
-- 截圖時間範圍為最近 10 分鐘，時間軸使用瀏覽器時區（UTC+8）。
-- 右側的 LLM 流量來自 `loadtest/app_traffic.py`：以兩把正式 key 送出，速率在各自限額內，全部回 200。
-- Qdrant 面板的資料來自測試套件，因為 RAG 應用尚未實作。
-- 資料來源的細節見 [`reports/raw/D/screenshot.txt`](reports/raw/D/screenshot.txt)。</sub>
+- **時間範圍**：2026-11-27 15:23:32–15:30:32（UTC+8），共 7 分鐘。時間軸使用瀏覽器時區（UTC+8）。
+- **流量來源**：只有 `loadtest/app_traffic.py` 以兩把正式 key（`support-rag`、`onboarding-agent`）送出的一般流量。速率在各自限額內，150 + 150 輪全部回 200。這段流量從 15:22:08 起跑 10 分鐘，截圖範圍完全落在其中。
+- **範圍內沒有測試、壓測或 master key 的流量**，也沒有失敗的請求。依據是截圖當下對 Prometheus 的查詢結果。所以錯誤率 0.0%，p95 延遲反映一般 chat 回應的長度。
+- **Qdrant 面板沒有資料**：RAG 應用尚未實作，沒有應用呼叫 Qdrant；Collections／Vectors 為 0 是實際值。
+- 證據：[`reports/raw/dashboard/`](reports/raw/dashboard/)（流量輸出、截圖輸出、時間窗內的流量查詢）。</sub>
 
 ## 目錄
 
@@ -250,11 +251,13 @@ python infra/grafana/build_dashboards.py --check   # 給 CI / pytest 用：JSON 
 重新產生 README 截圖的步驟：
 
 ```bash
-python loadtest/app_traffic.py --duration 300                  # 先跑一段正式 key 流量
-python -m uv run python scripts/screenshot_dashboard.py --range 10m
+python loadtest/app_traffic.py --duration 600                  # 正式 key 的一般流量；期間不要跑測試或壓測
+# 約 8 分鐘後（另開一個終端機），截圖範圍要完全落在流量期間：
+python -m uv run python scripts/screenshot_dashboard.py --range 7m --allow-idle-qdrant
+python scripts/dashboard_window_traffic.py --range 7m          # 確認範圍內只有正式 key、沒有失敗
 ```
 
-`screenshot_dashboard.py` 會用 Playwright 的 kiosk 模式截圖。只要有任何面板沒有資料，就不會寫入 `docs/images/dashboard.png`。
+`screenshot_dashboard.py` 會用 Playwright 的 kiosk 模式截圖。只要有任何面板沒有資料，就不會寫入 `docs/images/dashboard.png`。`--allow-idle-qdrant` 只豁免 Qdrant 面板，並會列出被豁免的面板名稱。`dashboard_window_traffic.py` 查詢 Prometheus：範圍內若有正式 key 以外的流量、任何失敗或 Qdrant 呼叫，就以結束碼 1 回報。
 
 ## 測試
 
@@ -270,6 +273,16 @@ python -m uv run pytest                          # 全部，約 5 分鐘
 python -m uv run pytest -m "not llm"             # 跳過會呼叫模型的測試，包括 Grafana e2e（約 20 秒）
 python -m uv run pytest tests/e2e                # 只跑 Grafana 瀏覽器檢查（約 2.5 分鐘）
 ```
+
+各路徑的測試數量（`pytest --collect-only` 的結果，由 `test_readme.py` 檢查與實際一致）：
+
+| 路徑 | 測試數 | 指令 | 內容 |
+|---|---:|---|---|
+| `tests/platform` | 163（含 1 個 xfail） | `python -m uv run pytest tests/platform` | 容器、gateway、key、監控、儀表板 API、Qdrant、壓測工具、README 與 repo 衛生 |
+| `tests/e2e` | 22 | `python -m uv run pytest tests/e2e` | Playwright 瀏覽器檢查 Grafana 儀表板（需要 chromium） |
+| 全部（`tests`） | 185 | `python -m uv run pytest` | 上面兩者合計 |
+
+只跑 `tests/platform` 時，結果是「162 passed, 1 xfailed」，不包含 e2e 的 22 個測試；完整套件是「184 passed, 1 xfailed」。
 
 | 檔案 | 驗證內容 |
 |---|---|
